@@ -1,0 +1,155 @@
+Dynamic Provisioning
+===================================================================================
+ EFS with Deployment = Storage class + PVC (PV by default created)
+===================================================================================
+EFS is great for shared, scalable access from multiple pods.
+
+📁 1. storageclass-efs.yaml
+
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: efs-sc
+provisioner: efs.csi.aws.com
+parameters:
+  provisioningMode: efs-ap
+  fileSystemId: fs-0123456789abcdef0
+  directoryPerms: "700"
+mountOptions:
+  - tls
+
+📁 2. pvc-efs.yaml
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: efs-pvc
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 5Gi
+  storageClassName: efs-sc
+
+
+📁 3. deployment-efs.yaml
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-app
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: web
+  template:
+    metadata:
+      labels:
+        app: web
+    spec:
+      containers:
+        - name: nginx
+          image: nginx
+          volumeMounts:
+            - name: efs-vol
+              mountPath: /usr/share/nginx/html
+      volumes:
+        - name: efs-vol
+          persistentVolumeClaim:
+            claimName: efs-pvc
+
+📁 4. web-service.yaml
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: web-service
+spec:
+  selector:
+    app: web
+  ports:
+    - port: 80
+      targetPort: 80
+  type: LoadBalancer
+
+✅ Result:
+Two replicas of nginx share the same /usr/share/nginx/html directory (backed by EFS), and EFS supports concurrent writes.
+===========================================================================================
+Static provisioning
+EFS with Deployment = PV + PVC
+
+🔹 Step 1: Create EFS File System
+aws efs create-file-system --region us-east-1 --tags Key=Name,Value=efs-static
+G
+et the FileSystemId, example: fs-abcdef123456.
+Create mount targets in each subnet where your nodes run
+
+🔹 Step 2: Static PersistentVolume for EFS
+
+📁 pv-efs-static.yaml
+
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-efs-static
+spec:
+  capacity:
+    storage: 5Gi
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
+  csi:
+    driver: efs.csi.aws.com
+    volumeHandle: fs-abcdef123456
+
+
+🔹 Step 3: PersistentVolumeClaim
+
+📁 pvc-efs-static.yaml
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: efs-static-pvc
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: ""
+  volumeName: pv-efs-static
+  resources:
+    requests:
+      storage: 5Gi
+
+
+🔹 Step 4: Deployment with Shared Volume
+
+📁 deployment-efs-static.yaml
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: web
+  template:
+    metadata:
+      labels:
+        app: web
+    spec:
+      containers:
+        - name: nginx
+          image: nginx
+          volumeMounts:
+            - name: efs
+              mountPath: /usr/share/nginx/html
+      volumes:
+        - name: efs
+          persistentVolumeClaim:
+            claimName: efs-static-pvc
