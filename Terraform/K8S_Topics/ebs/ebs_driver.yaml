@@ -1,6 +1,6 @@
 Dynamic provisiong
 ==========================================================================================
-StatefulSet with EBS VolumeClaimTemplates
+StatefulSet with EBS Storageclass + VolumeClaimTemplates
 ==========================================================================================
 apiVersion: storage.k8s.io/v1
 kind: StorageClass
@@ -68,3 +68,113 @@ spec:
     - name: db
       port: 5432
       targetPort: 5432
+ Result:
+Each pod (mydb-0, mydb-1) gets its own dynamically provisioned EBS volume mounted at /var/lib/postgresql/data.
+
+
+static provisiong
+==========================================================================================
+StatefulSet with EBS PV+VolumeClaimTemplates
+==========================================================================================
+ Step 1: Prerequisites
+
+Manually create 2 EBS volumes in the same AZ as your worker nodes:
+
+aws ec2 create-volume \
+  --availability-zone us-east-1a \
+  --size 10 \
+  --volume-type gp3 \
+  --tag-specifications 'ResourceType=volume,Tags=[{Key=Name,Value=ebs-vol-0}]'
+
+Repeat for ebs-vol-1.
+
+
+🔹 Step 2: PersistentVolumes
+
+📁 pv-ebs-vol-0.yaml
+
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-ebs-vol-0
+spec:
+  capacity:
+    storage: 10Gi
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: manual
+  persistentVolumeReclaimPolicy: Retain
+  csi:
+    driver: ebs.csi.aws.com
+    volumeHandle: vol-xxxxxxxxxxxxxxx0
+    fsType: ext4
+    volumeAttributes:
+      storage.kubernetes.io/csiProvisionerIdentity: manual
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: topology.ebs.csi.aws.com/zone
+              operator: In
+              values:
+                - us-east-1a
+
+Create pv-ebs-vol-1.yaml similarly with vol-xxxxxxxxxxxxxxx1.
+
+
+🔹 Step 3: StatefulSet with Pre-defined PVC Names
+
+📁 statefulset-ebs-static.yaml
+
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: db
+spec:
+  serviceName: db
+  replicas: 2
+  selector:
+    matchLabels:
+      app: db
+  template:
+    metadata:
+      labels:
+        app: db
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:15
+          env:
+            - name: POSTGRES_PASSWORD
+              value: mysecretpassword
+          ports:
+            - containerPort: 5432
+          volumeMounts:
+            - name: ebs-volume
+              mountPath: /var/lib/postgresql/data
+  volumeClaimTemplates:
+    - metadata:
+        name: ebs-volume
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        storageClassName: manual
+        resources:
+          requests:
+            storage: 10Gi
+
+> These will match the pv-ebs-vol-0, pv-ebs-vol-1 automatically because they use the same name binding mechanism.
+
+🔹 Step 4: Headless Service
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: db
+spec:
+  ports:
+    - port: 5432
+  clusterIP: None
+  selector:
+    app: db
+
