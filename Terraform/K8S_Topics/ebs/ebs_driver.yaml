@@ -1,1 +1,70 @@
+Dynamic provisiong
+==========================================================================================
+StatefulSet with EBS VolumeClaimTemplates
+==========================================================================================
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: ebs-sc
+provisioner: ebs.csi.aws.com
+volumeBindingMode: WaitForFirstConsumer
+parameters:
+  type: gp3  # or gp2
 
+> WaitForFirstConsumer ensures volume is created in the same AZ as the pod node.
+
+-----------------------------------------------------------------------------------------------
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mydb
+  labels:
+    app: mydb
+spec:
+  serviceName: "mydb"  # Must match the Headless service name
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mydb
+  template:
+    metadata:
+      labels:
+        app: mydb
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:15
+          ports:
+            - containerPort: 5432
+              name: postgres
+          env:
+            - name: POSTGRES_PASSWORD
+              value: mypassword
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: ebs-sc
+        resources:
+          requests:
+            storage: 10Gi
+
+---------------------------------------------------------------------------------------------
+Headless Service (required for StatefulSet)
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: mydb
+spec:
+  clusterIP: None  # <-- Headless service
+  selector:
+    app: mydb
+  ports:
+    - name: db
+      port: 5432
+      targetPort: 5432
