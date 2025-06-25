@@ -5,7 +5,7 @@
 EX: Your frontend app uses type: ClusterIP to connect to the backend via: http://backend-service:8080
 
 
-3) NodePort
+2) NodePort
 -A service that exposes your app on a static port on every Kubernetes node’s IP address. This allows you to access the service from outside the cluster using NodeIP: NodePort.
 -It's the simplest way to test external access without needing cloud load balancers.
 Ex: You run an app and expose it via: type: NodePort,nodePort: 30001
@@ -13,13 +13,13 @@ You can access it like: http://<EC2-Node-Public-IP>:30001
 
 
       
-4) Loadbalancer:
+3) Loadbalancer:
 -from v1.15+, NLB is the default; Earlier Classic lb
 -A service that automatically creates an external load balancer (like AWS NLB or Azure LB) and assigns a public IP or DNS name to expose your app to the internet.
 
 
 
-6) External name
+4) External name
 -A Kubernetes service that acts as a DNS alias, mapping a service name inside the cluster to an external DNS name outside the cluster.
 -It doesn't create a real service or endpoints — it simply allows internal apps to call external services using a simpler name.
 -Your app in Kubernetes connects to an AWS RDS MySQL database like this:
@@ -29,22 +29,16 @@ You can access it like: http://<EC2-Node-Public-IP>:30001
 
 
   
-7) Headless Service
+5) Headless Service
 -A Kubernetes service without a virtual IP. It lets clients connect directly to each pod using DNS, instead of load-balancing.
-
 🌟 Features:
-No load balancing
-Direct pod access via DNS
-Works with StatefulSets
-Returns individual pod IPs
-
-🧰 Use Cases:
-Peer-to-peer apps
-Databases needing stable pod names
-
-🔍 Real Examples:
-Kafka, MongoDB, Zookeeper, Cassandra, Redis Sentinel
-
-✅ In One Line:
-> Use Headless Service when each pod must be uniquely addressable — especially for stateful apps.
+-No load balancing
+-Direct pod access via DNS
+-Works with StatefulSets
+-Returns individual pod IPs
+Use Cases:
+-Peer-to-peer apps
+-Databases needing stable pod names
+-Real Examples: Kafka, MongoDB, Zookeeper, Cassandra, Redis Sentinel
+In One Line:Use Headless Service when each pod must be uniquely addressable — especially for stateful apps.
 
