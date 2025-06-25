@@ -1,1 +1,80 @@
+CLUSTERIP
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-service
+spec:
+type: ClusterIP
+  selector:
+    app: backend
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
+----------------------------------------------------------------------------
+NODEPORT
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-service
+spec:
+type: Nodeport
+  selector:
+    app: backend
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
+-------------------------------------------------------------------------------
+LOAD BALANCER
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-service
+annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+spec:
+type: LoadBalancer
+  selector:
+    app: backend
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
+-----------------------------------------------------------------------
+# EXTERNAL NAME
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: db-config
+data:
+  DB_HOST: db-service
+  DB_USER: admin
+  DB_PASS: password
+  DB_NAME: testdb
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: db-service
+spec:
+  type: ExternalName
+  externalName: mydb.rds.amazonaws.com
+------------------------------------------------------------------------
+HEADLESS SERVICE
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka
+spec:
+  clusterIP: None  # 👈 This makes it Headless
+  selector:
+    app: kafka
+  ports:
+    - name: broker
+      port: 9092
 
