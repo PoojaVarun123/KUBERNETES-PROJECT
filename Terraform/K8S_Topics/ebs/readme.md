@@ -1,7 +1,7 @@
 Step Action
 
-1 Enable OIDC on EKS
-2 Create IAM policy
+#1 Enable OIDC on EKS
+#2 Create IAM policy
 3 Create IRSA role + SA
 4 Install EBS CSI driver
 5 Create StorageClass
