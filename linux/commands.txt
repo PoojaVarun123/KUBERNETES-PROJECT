@@ -1,0 +1,89 @@
+====================================================================================
+                                      LINUX COMMANDS
+====================================================================================
+1) ps aux  : process status
+  -a : show processes for all users
+  -u : show the process user/owner and more datailed info like CPU and memory usage
+  -x : show processes not attache to terminal ( eg:background services or daemons
+   ps aux | grep apache
+   ps aux --sort=-%mem | head
+   ps aux | grep nginx or systemctl status nginx
+
+curl ifconfig.me---public adrress
+rsync -avz -e "ssh -i ec2key.pem" z4.txt ubuntu@65.0.170.15:/home/ubuntu/
+scp -i ./ec2key.pem z4.txt ubuntu@65.0.170.15:/home/ubuntu/
+
+2) top 
+  -ps used by all uers
+  - memory ,total tasks
+  - cpu, load average
+  - swap memory, uptime 
+  -its like more live every 5 seconds it will get updated
+
+3) netstat 
+  -  sudo netstat -tulnp | grep nginx
+  -  sudo ss -tulnp | grep nginx     (cat /etc/nginx/nginx.conf)
+====================================================================================
+1. htop – Interactive Process Viewer
+
+2. lsof – List Open Files and Sockets
+
+3. journalctl – View System Logs (Systemd)
+  journalctl -xe
+  journalctl -u nginx
+
+4. systemctl – Manage Systemd Services
+
+5. du – Check Disk Usage
+    du -sh /var/*
+  
+6. df – Check Disk Space Usage
+
+7. free – Check Memory and Swap Usage
+
+8. uptime – Check System Uptime and Load Average
+
+9. top – The Basic Real-Time System Monitor
+
+10. ps aux – Take a Snapshot of Running Processes: ps aux gives you a complete snapshot – 
+who’s running what, how much CPU and memory they’re using, and more.
+  
+11. netstat / ss – Check Network Connections:  ss -tuln
+  
+12. ip – Network Interface and Routing
+The ip command is the modern replacement for the old ifconfig and route commands. 
+  If you’re still using ifconfig, it’s time to switch – ip is more powerful, actively maintained, and available by default on all modern Linux distributions.  
+  ip a        # Shows all IP addresses and network interfaces
+  ip r        # Displays the system's routing table
+
+13. ping – Network Connectivity
+`  ping -c 4 google.com
+
+14. traceroute / tracepath – Network Route Debugging
+When a server or website isn’t responding, and ping is giving you no answers, 
+it’s time to see how your packets are traveling across the network and where they’re getting stuck.
+
+15. nc (Netcat) – Test Port Connectivity
+check if a port is open and reachable on a remote machine – super handy for troubleshooting services like SSH, web servers, or database ports.
+Let’s say you want to test if SSH (port 22) is open on a remote server 192.168.1.10.
+nc -zv 192.168.1.10 22
+
+16. rsync – Sync Files Over SSH
+When it comes to backing up or syncing files, nothing beats rsync, which is fast, efficient, and network-friendly. 
+Unlike scp, which copies everything from scratch, rsync only transfers changed parts of files, which saves both time and bandwidth.
+rsync -avz /data/ user@remote:/backup/
+
+17. crontab – Schedule Jobs (Task Automation): 0 2 * * * /usr/bin/backup.sh
+
+18. tail -f – Live Log MonitoringWhen something goes wrong on a Linux system, logs are usually the first place you should look. 
+  The tail -f command lets you watch logs in real time, which is super helpful for debugging.
+  tail -f /var/log/messages
+
+19. chmod and chown – File Permissions and Ownership
+Managing file permissions is crucial on any Linux system, and these two commands help you control who can access what:
+chmod sets permissions (read, write, execute).
+chown changes the owner and group.
+
+20. find – Search for Files
+    find /var/log -name "*.log"
+    find /tmp -type f -mtime +7 -delete
