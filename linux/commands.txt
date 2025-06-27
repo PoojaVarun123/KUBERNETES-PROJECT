@@ -9,6 +9,10 @@
    ps aux --sort=-%mem | head
    ps aux | grep nginx or systemctl status nginx
 
+ps -ef 
+  e : all processes
+  f : full format ppid,time,command
+
 curl ifconfig.me---public adrress
 rsync -avz -e "ssh -i ec2key.pem" z4.txt ubuntu@65.0.170.15:/home/ubuntu/
 scp -i ./ec2key.pem z4.txt ubuntu@65.0.170.15:/home/ubuntu/
@@ -87,3 +91,34 @@ chown changes the owner and group.
 20. find – Search for Files
     find /var/log -name "*.log"
     find /tmp -type f -mtime +7 -delete
+
+21. uname – unix name. This command provides the name, kernel version and other system architecture details about the current system and the Linux OS running on it
+
+22. Echo
+  echo "Hello World" > output.txt: If the file does not exist it will be created, if it does exist it will be replaced.
+  echo "kiwi" >> biglist :  Appending data to an existing file 
+
+23. Cat 
+  cat list1 list2 > biglist 
+
+24. 4.1 Wildcards 
+  The characters * and ? 
+  ls list* : This will list all files in the current directory starting with list.... 
+  ls *list : This will list all files in the current directory ending with ....list 
+  The character ? will match exactly one character. So ls ?ouse will match files like house and mouse, but not grouse. Try typing 
+  ls ?list 
+  ls list? 
+25.mkdir newdir{1,2,3,4,5}
+26.For example, to remove read write and execute permissions on the file biglist for the group and others, type 
+  chmod go-rwx biglist : This will leave the other permissions unaffected. 
+  To give read and write permissions on the file biglist to all, : chmod a+rw biglist  
+27. locate filename 
+  locate -i filename 
+  locate -r filename 
+ locate is a very quick way of finding files on a large system. It performs a similar role to the find command but 
+works in a very different way. find looks through the file system until it finds your files (which can be slow but is almost always correct); 
+locate on the other hand searches a database in which the locations of files are maintained.  
+
+28. for i in 1 2 3 4 5  
+    do   
+  echo “loop $i” done 
