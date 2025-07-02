@@ -1,0 +1,268 @@
+INFRA SET-UP:
+VM1 -- jenkins server + t2.medium + 12gb + Java-17 + Jenkins
+VM2 -- Slave machine + t2.large + 15gb + Java + docker + maven + trivy + aws cli + kubectl 
+VM3 -- t2.medium + 12gb + docker + sonar
+VM4 -- t2.medium + 12gb + java + jfrog
+VM5 -- Metrics server + t2.medium + 15gb + terraform + helm + eksctl + aws cli
+=====================================================================================================================
+PLUGINS:
+sonarqube scanner
+config file provider for nexus
+maven integration
+pipeline maven integration
+docker pipeline 
+k8s cli
+k8s credentials
+kubernetes
+k8s client provider
+k8s client api
+pipeline stage view
+blue ocean
+generic webhook trigger plugin for webhook
+folder plugin - credentials store (custom folder icon)
+role based authorization strategy plugin
+matrix based authorizatiin startegy
+LDAP plugin or active directory plugin  
+audit log plugin 
+audit trail plugin
+======================================================================================================================
+
+INSTALLATION:
+sonar 
+jfrog
+scanner-install
+======================================================================================================================
+CREDENTIALS:
+git -- token -- but username/password
+sonar -- use token -- secret text 
+docker -- username/password
+jfrog -- username/password
+
+=======================================================================================================================
+
+PORTS:
+Jenkins -- 8080
+Sonarqube -- 9000
+Nexus -- 8081
+Jfrog -- 8081 > 8082
+httpd2/apache -- 80 / 443
+Tomcat -- 8080
+nginx -- 80 / 443
+
+SSH -- 22
+http -- 80
+https -- 443
+SSL -- 465
+TSL -- 587
+SMTP -- 25
+DNS -- 53
+
+MYSQL -- 3306 
+PostgreSQL-- 5432
+MongoDB --27017
+Redis -- 6379
+Docker registry -- 5000 
+
+Kubernetes Kubelet API -- 10250
+Kubernetes API Server -- 6443
+Kube scheduler -- 10259
+Controller Manager --10257
+etcd -- 2379-2380 
+
+Grafana -- 3000
+Prometheus -- 9090
+lasticsearch -- data storage -- 9200
+logstash -- log pipeline -- 5044
+Kibana -- log visualization -- 5601
+Filebeat -- log shipping -- agent runs on hosts
+Node exporter -- 9100
+cAdvisor -- Node metrics --4194
+Alertmanager -- 9093
+Loki -- logs like ELK 3100
+Promtail --Log forwarder --runs as deamon on host
+
+==============================================================================================================
+1) Java in slave machine should compatible to run agent.jar to connect jenkins slave and also to build app but 
+not specific to java version installed on jenkins master.
+2) sudo usermod -aG docker $USER (ubuntu) && newgrp docker (no need to restrart)
+3) -d -- to run in background
+4) sonarqube: sonar scanner(does analysis) and sonar server(report publisher)
+5) sudo usermod -aG docker jenkins
+6) best practice to keep 3 builds
+7) tools { 
+	maven 'maven3'
+	}
+8) trivy fs . --output table -o trivy_fs.txt  . ( -o output )
+9) sonar-scanner is executable file
+10) environment {
+	SCANNER_HOME = tool 'sonar_env_var'
+	}
+11) $SCANNER_HOME/bin/soanr-scanner -Dsonar.projectKey=alpha_project -Dsonar.projectName=alpha_project -Dsonar.java.binaries=target
+12) trivy image --output table -o trivy_image.html  imagename
+13)first time build process takes more time because dependenices getting installed,but in later builds it takes less time.
+14) webhook or payload url
+15) sed -i 's|varunpooja/myapp:.*|image-new-name'
+16) EKS ctl to create cloud formation
+17) mvn install - Insatlls the package into local maven repo : copies /.jar, /.war and pom to ~/.m2/repsository >  when building multiple modules  > .jar available for other modules on the same machine >  to re-use the JAR in another Maven project on same machine
+18) mvn deploy - uploads the package into the local Maven repo
+19) mvn verify runs integration tests and checks that the package meets quality criteria > verifies the arifact is ready for deploymment
+20) compile > test > package > verify > install > deploy 
+21) sh ''' trivy image --severity HIGH,CRITICAL,MEDIUM --exit-code 1 --format table --output trivy-report.txt myapp:latest '''
+        
+     archiveArtifacts artifacts: 'trivy-report.txt', 
+     allowEmptyArchive: true
+22) Qualitygate : timeout first or later on quality gate > timeout starts > first this block starts and sets the max time limit >  Jenkins polls sonarqube every few seconds(deafult :5s ) to get the quality gate result.
+
+
+
+
+=====================================================================================================================
+CI-CD PIPELINE: 
+Steps:
+1) checkout git ; username with password but use token as password ; target/classes
+2) compile : tool - maven : binaries >  target/classes
+3) test  : tool - maven : runs src/test/java > target/surefire-reports
+4) sonarqube analysis: sonar server + sonar scanner config on jenkins master > surefire reports
+5) trivy 
+6) quality gate : need webhook : http://jenkins_url/sonarqube-webhook : use timeout enforce time limit from syntax generator to set time
+7) publish artifacts; jenkins to nexus url through pom
+   credentials through congif fiel maven settings 
+8) docker build and tag: write within scripts ; use withdockerregistry
+9) trivy scan for image
+10) git update image name in repo: username/password use with credentials
+11) email notifications: https://myaccount.google.com/apppasswords > apppasswords(any name like jenkins) > generate app passwords
+	a) manage jenkins > extented email > smtp.gmail.com > 465 > SSL
+	b) ADD cred > username:email-id password:apppassword generated
+	c) emial notification > smtp.gmail.com >selct smtp authentication > username:mailid password > use SSL >465 PORT >charset UTF-8
+==========================================================================================================================================
+
+JENKINS
+
+POST ACTIONS:
+always: Steps are executed regardless of the completion status.
+ • changed: Executes only if the completion results in a different status than the previous run. 
+• fixed: Executes only if the completion is successful and the previous run failed 
+• regression: Executes only if current execution fails, aborts or is unstable and the previous run was successful. 
+• aborted: Steps are executed only if the pipeline or stage is aborted. 
+• failure: Steps are executed only if the pipeline or stage fails. 
+• success: Steps are executed only if the pipeline or stage succeeds. 
+• unstable: Steps are executed only if the pipeline or stage is unstable. 
+
+TRIGGERS 
+Triggers allows Jenkins to automatically trigger pipelines by using any of the available ones: 
+• cron: By using cron syntax, it allows to define when the pipeline will be re-triggered. 
+• pollSCM: By using cron syntax, it allows you to define when Jenkins will check for new source repository updates. The Pipeline will be re-triggered if changes are detected. (Available starting with Jenkins 2.22). 
+• upstream: Takes as input a list of Jenkins jobs and a threshold. The pipeline will be triggered when any of the jobs on the list finish with the threshold condition.   
+
+pipeline { 
+	agent any 
+		triggers { 
+			//Execute weekdays every four hours starting at  minute 0 
+			cron('0 */4 * * 1-5') 
+} 
+
+ipeline { 
+	agent any 
+		triggers { 
+			//Execute weekdays every four hours starting at  minute 0 
+			pollSCM('0 */4 * * 1-5') 
+}
+
+ipeline { 
+	agent any 
+		triggers { 
+			//Execute weekdays every four hours starting at  minute 0 
+			upstream(upstreamProjects: 'job1, job2',  
+				threshold: hudson.model.Result.SUCCESS) 
+			} 
+OPTIONS:
+Timeout Auto-kill long-running jobs
+Disable concurrent builds Prevent parallel executions
+Timestamps / ANSI color Improve logging visibility
+Retry Add fault tolerance
+Build discarder Save disk space, clean old builds
+Quiet period Delay start for SCM events
+
+==========================================================================================================================================
+KUBERNETES:
+1) ebs-csi-driver oidc + trust role - policy attach + create sa with specific namespace  add ingress annotations policy:arn  
+2) static : sc + volumetclaimemplate (no PVC) on statefulset  : each pod get equal volume
+dynamic : no sc define + 
+cert-manager
+ingress - oidc + trust role - policy attach + create sa with specific namespace  add ingress annotations policy:arn 
+hpa - only metrics server through hElm
+vpa -
+cluster autoscaling -
+==========================================================================================================================================
+KUBERNETES:
+---------------------------------------------------------------------
+1) AWS CLI > https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html
+
+apt install unzip
+curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+unzip awscliv2.zip
+sudo ./aws/install
+
+----------------------------------------------------------------------------
+2) eksctl > https://eksctl.io/installation/
+
+# for ARM systems, set ARCH to: `arm64`, `armv6` or `armv7`
+ARCH=amd64
+PLATFORM=$(uname -s)_$ARCH
+
+curl -sLO "https://github.com/eksctl-io/eksctl/releases/latest/download/eksctl_$PLATFORM.tar.gz"
+
+# (Optional) Verify checksum
+curl -sL "https://github.com/eksctl-io/eksctl/releases/latest/download/eksctl_checksums.txt" | grep $PLATFORM | sha256sum --check
+
+tar -xzf eksctl_$PLATFORM.tar.gz -C /tmp && rm eksctl_$PLATFORM.tar.gz
+
+sudo install -m 0755 /tmp/eksctl /usr/local/bin && rm /tmp/eksctl
+
+To check version :: eksctl verison
+
+---------------------------------------------------------------------------
+3) kubectl > https://kubernetes.io/docs/tasks/tools/install-kubectl-linux/
+
+curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl.sha256"
+sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+chmod +x kubectl
+mkdir -p ~/.local/bin
+mv ./kubectl ~/.local/bin/kubectl
+# and then append (or prepend) ~/.local/bin to $PATH  
+kubectl version --client
+------------------------------------------------------------------------
+4) aws configure
+
+aws sts get-caller-identity > check identity
+-----------------------------------------------------------------------------------
+5) CREATE CLUSTER AND NODEGROUPS
+eksctl create cluster \
+  --name textroid-cluster \
+  --version 1.29 \
+  --region us-east-1 \
+  --nodegroup-name textroid-cluster-workers \
+  --node-type t2.medium \
+  --nodes 2 \
+  --nodes-min 1 \
+  --nodes-max 3 \
+  --managed
+-----------------------------------------------------------------------------------
+6) UPDATE CONFIG
+
+No need to update kubeconfig > because the updated  kubeconfig 
+cd / > cd root > ls -al > cd .kube > config
+------------------------------------------------------------------------------------
+7) CREATE SECRET > to store docker registry credentials > mention the secret name in imagePullImage of deployment.yaml
+
+kubectl create secret docker-registry my-dockerhub-secret \
+  --docker-username=your-dockerhub-username \
+  --docker-password=your-dockerhub-password \
+  --docker-email=your-email@example.com \
+  --docker-server=https://index.docker.io/v1/
+===================================================================================
+authentication > user
+authorization > role-policies
+
+
