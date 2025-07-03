@@ -1,0 +1,141 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-app-blue
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: my-app
+      version: blue
+  template:
+    metadata:
+      labels:
+        app: my-app
+        version: blue
+    spec:
+      containers:
+      - name: my-app
+        image: my-app:v1
+
+✅ Service pointing to blue:
+
+selector:
+  app: my-app
+  version: blue
+============================================================================================
+Step 2: Deploy Green (New Version)
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-app-green
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: my-app
+      version: green
+  template:
+    metadata:
+      labels:
+        app: my-app
+        version: green
+    spec:
+      containers:
+      - name: my-app
+============================================================================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-app-service
+  namespace: staging
+spec:
+  selector:
+    app: my-app
+    version: blue   # Change to green to switch
+  ports:
+  - port: 80
+    targetPort:
+================================================================================================================
+kubectl patch service my-app-service -n <namespace> -p '{"spec":{"selector":{"app":"my-app","version":"green"}}}'
+================================================================================================================
+JENKINSFILE
+================================================================================================================
+pipeline {
+    agent any
+
+    environment {
+        KUBE_NAMESPACE = 'production'
+        APP_NAME = 'my-app'
+        BLUE_DEPLOYMENT = 'my-app-blue'
+        GREEN_DEPLOYMENT = 'my-app-green'
+        SERVICE_NAME = 'my-app-service'
+        IMAGE_TAG = "myrepo/my-app:${BUILD_NUMBER}"
+    }
+
+    stages {
+
+        stage('Checkout') {
+            steps {
+                git credentialsId: 'git-credentials-id', url: 'https://github.com/myorg/myrepo.git'
+            }
+        }
+
+        stage('Build & Push Image') {
+            steps {
+                sh '''
+                    docker build -t $IMAGE_TAG .
+                    docker push $IMAGE_TAG
+                '''
+            }
+        }
+
+        stage('Deploy Green') {
+            steps {
+                sh '''
+                    # Apply green deployment with new image
+                    sed "s|REPLACE_IMAGE|$IMAGE_TAG|g" k8s/deployment-green.yaml | kubectl apply -n $KUBE_NAMESPACE -f -
+                '''
+            }
+        }
+
+        stage('Health Check Green') {
+            steps {
+                script {
+                    def health = sh(script: """
+                        kubectl wait --namespace=$KUBE_NAMESPACE --for=condition=available --timeout=60s deployment/$GREEN_DEPLOYMENT
+                    """, returnStatus: true)
+                    
+                    if (health != 0) {
+                        error("Green deployment failed health check!")
+                    }
+                }
+            }
+        }
+
+        stage('Switch Service to Green') {
+            steps {
+                sh '''
+                    kubectl patch svc $SERVICE_NAME -n $KUBE_NAMESPACE -p '{"spec": {"selector": {"app": "'$APP_NAME'", "version": "green"}}}'
+                '''
+            }
+        }
+
+        stage('Clean up Old Blue (Optional)') {
+            steps {
+                input message: "Proceed to delete old Blue deployment?"
+                sh '''
+                    kubectl delete deployment $BLUE_DEPLOYMENT -n $KUBE_NAMESPACE || true
+                '''
+            }
+        }
+
+    }
+
+    post {
+        failure {
+            echo 'Deployment failed. Consider rollback.'
+        }
+    }
+}
