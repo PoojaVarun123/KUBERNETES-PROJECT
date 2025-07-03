@@ -1,0 +1,165 @@
+=======================================================================================================
+Basic Kubernetes (without service mesh):default
+=======================================================================================================
+Traffic splitting is replica-based: You control traffic by scaling the number of pods for each version.
+The Service does random load-balancing across all matching pods.
+
+✅ In plain Kubernetes (without Istio or Service Mesh), Canary Deployment is done using replica count and 
+labels—no actual “traffic splitting” control, but it works in real-time production environments.
+---------------------------------------------------------------------------------------------------------
+🚀 Real-Time Canary Deployment in Plain Kubernetes (Replica-Based)
+✅ Key Idea:
+Create two Deployments (old + new version) with:
+The same Service selector (app: my-app)
+Different version labels (version: v1 and version: v2)
+
+Control traffic by adjusting pod replica counts.
+--------------------------------------------------------------------------------------------------------
+📄 Step 1: Service (Shared for All Versions)
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-app-service
+  namespace: production
+spec:
+  selector:
+    app: my-app
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
+
+✅ Service routes traffic to any pod with label app: my-app.
+---------------------------------------------------------------------------------------------------------
+📄 Step 2: Old Deployment (v1)
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-app-v1
+  namespace: production
+spec:
+  replicas: 4
+  selector:
+    matchLabels:
+      app: my-app
+      version: v1
+  template:
+    metadata:
+      labels:
+        app: my-app
+        version: v1
+    spec:
+      containers:
+      - name: my-app
+        image: myrepo/my-app:v1
+        ports:
+        - containerPort: 8080
+---------------------------------------------------------------------------------------------------------
+📄 Step 3: Canary Deployment (v2)
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-app-v2
+  namespace: production
+spec:
+  replicas: 1   # Start with 1 pod for canary
+  selector:
+    matchLabels:
+      app: my-app
+      version: v2
+  template:
+    metadata:
+      labels:
+        app: my-app
+        version: v2
+    spec:
+      containers:
+      - name: my-app
+        image: myrepo/my-app:v2
+        ports:
+        - containerPort: 8080
+---------------------------------------------------------------------------------------------------------
+✅ Now: | Version | Number of Pods | Approx Traffic | 
+        | v1      | 4 pods         | ~80%           | 
+        | v2      | 1 pod (canary) | ~20%           |
+Kubernetes Service does random selection, so traffic is split proportionally to pod counts.
+---------------------------------------------------------------------------------------------------------
+📈 Step 4: Gradually Increase v2:
+kubectl scale deployment my-app-v2 --replicas=3 -n production
+👉 You can progressively increase:
+v2: 1 → 3 → 5 pods
+v1: Reduce from 4 → 2 → 0 pods
+---------------------------------------------------------------------------------------------------------
+🛑 Rollback:
+kubectl scale deployment my-app-v2 --replicas=0 -n production
+# Or delete v2:
+kubectl delete deployment my-app-v2 -n production
+---------------------------------------------------------------------------------------------------------
+✅ Summary: Plain Kubernetes Canary Pros & Cons
+Pros/Cons
+✅ Simple (no service mesh needed) ❌ No fine-grained % traffic control
+✅ Easy to rollback or scale up/down ❌ Random pod selection by Service
+✅ Works with just kubectl & YAML ❌ No session stickiness, no progressive traffic shift
+
+👉 Production Tip:
+Monitor canary pods via:
+kubectl get pods -l version=v2 -n production
+kubectl logs deployment/my-app-v2 -n production
+If stable → scale up
+If issues → rollback fast.
+========================================================================================================
+👉 In advanced production (with service mesh like Istio, Linkerd, or AWS App Mesh):
+You control traffic splitting explicitly through YAML (VirtualService in Istio, for example).
+=======================================================================================================
+With Istio, you can precisely define % of traffic to each version in YAML using a VirtualService.
+
+1) Istio VirtualService
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: my-app-virtualservice
+  namespace: production
+spec:
+  hosts:
+  - my-app.example.com
+  http:
+  - route:
+    - destination:
+        host: my-app
+        subset: v1
+      weight: 80
+    - destination:
+        host: my-app
+        subset: v2
+      weight: 20
+--------------------------------------------------------------------------------------------------------------
+2) DestinationRule to define subsets:
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: my-app-destination
+  namespace: production
+spec:
+  host: my-app
+  subsets:
+  - name: v1
+    labels:
+      version: v1
+  - name: v2
+    labels:
+      version: v2
+
+2. Your Deployments must have these labels:
+metadata:
+  labels:
+    app: my-app
+    version: v1   # or v2
+
+✅ Result:
+80% of traffic → Pods with label version: v1
+20% of traffic → Pods with label version: v2
+No matter how many replicas you have—actual request traffic is split by Istio.
+
+====================================================================================
