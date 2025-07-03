@@ -1,0 +1,72 @@
+CUSTOM RESOURCE DEFINITIONS (CRDs)
+Extensions to Kubernetes that let you create new resource types—custom ones, beyond the default ones like Pods, Services, etc.
+
+✅ What are the CRDs for AWS Load Balancer Controller?
+When you install the AWS Load Balancer Controller in EKS, it adds new CRDs so Kubernetes can understand and manage AWS-specific 
+resources.
+
+targetgroupbindings.elbv2.k8s.aws Links Kubernetes Services to AWS Target Groups (for ALB/NLB)
+👉 It allows Kubernetes to manage AWS Target Groups that are part of Application Load Balancers.
+
+kubectl get crds
+
+Without CRD Kubernetes doesn’t know how to talk to AWS ALB/NLB.
+With CRD (TargetGroupBinding) Kubernetes can tell AWS: "create target group", "attach service" etc.
+---
+✅ CRDs You Might See in Other Controllers Too:
+Controller / Tool Common CRDs Installed
+AWS Load Balancer Controller > TargetGroupBinding
+ExternalDNS > DNSEndpoint
+Cert-Manager > Certificate, Issuer, ClusterIssuer
+ArgoCD Application
+Velero > Backup, Restore, Schedule
+
+✅ In short:
+👉 CRDs = New types of Kubernetes objects.
+👉 AWS ALB Controller installs TargetGroupBinding CRD so it can manage AWS-specific networking.
+
+
+---
+👉 If you want, I can help you list all CRDs in your cluster or show how to write your own CRD from scratch.
+Here’s a clear list of real-world scenarios where you need to install CRDs (Custom Resource Definitions) in Kubernetes:
+
+
+🚀 Scenarios Where CRDs Are Required:
+Scenario Why CRD is Needed Example CRD
+
+1. Ingress Controllers (ALB, NGINX, Traefik) 
+To define Ingress resources and sometimes advanced routing  > Ingress, IngressClass, IngressRoute (Traefik)
+2. Storage (EBS CSI, EFS CSI, Snapshotting) 
+To support dynamic provisioning, snapshots, and CSI features > VolumeSnapshot, VolumeSnapshotClass, CSIDriver
+3. Service Mesh (Istio, Linkerd) 
+To define virtual services, destinations, policies > VirtualService, DestinationRule, Policy
+4. Monitoring (Prometheus Operator, Thanos) 
+To define Prometheus, AlertManager, ServiceMonitors, etc. > ServiceMonitor, PrometheusRule, Alertmanager
+5. Logging (Fluent Bit Operator, Loki Operator) 
+To manage log pipelines declaratively > ClusterFlow, Output, LokiStack
+6. Certificate Management (cert-manager) > 
+To automate TLS certificates using ACME, Let's Encrypt > Certificate, Issuer, ClusterIssuer
+7. External Secrets Management (ESO, Sealed Secrets) 
+To sync secrets from cloud providers securely > ExternalSecret, SealedSecret
+8. ArgoCD / GitOps 
+To define Argo applications, projects, rollouts > Application, AppProject, Rollout
+9. Kubernetes Operators (any operator pattern) 
+Custom controllers that manage CRDs for specific applications > Operator-specific CRDs (e.g., KafkaTopic, MySQLCluster)
+10. Network Policy / Security (Calico, Cilium, Kyverno) 
+To extend Kubernetes network or security policies > GlobalNetworkPolicy, NetworkPolicy, ClusterPolicy
+
+---
+✅ Real Examples:
+Task CRDs Needed? Why?
+Deploy EBS CSI Driver ✅ Yes (VolumeSnapshot) For dynamic provisioning and snapshot support
+Install cert-manager ✅ Yes (Certificate, Issuer) To manage certificates in Kubernetes
+Install ArgoCD ✅ Yes (Application) To enable GitOps-driven deployments
+Setup Calico ✅ Yes (NetworkPolicy, GlobalNetworkPolicy) For advanced network segmentation
+Basic pod deployment (no addons) ❌ No Kubernetes built-in resources only
+
+
+✅ Key Takeaways:
+CRDs are required when you introduce anything beyond basic Kubernetes resources (Pods, Deployments, Services).
+Any controller, operator, or custom API introduces its own CRDs.
+Most Helm charts automatically install CRDs unless you opt out.
+
