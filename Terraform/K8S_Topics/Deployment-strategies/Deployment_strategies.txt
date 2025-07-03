@@ -1,0 +1,121 @@
+===============================================================================================================
+ROLLING UPDATE
+===============================================================================================================
+  maxSurge > Default -25%
+  maxUnavailable > Default - 25%
+  Default Strategy
+----------------------------------------------------------------------------------------------------------------
+kubectl patch is a Kubernetes command used to modify a live Kubernetes object directly without using YAML files.
+✅ What It Is:
+Gradually replaces old pods with new pods in batches.
+Ensures zero downtime.
+No need for new services or deployments—just update the existing Deployment.
+----------------------------------------------------------------------------------------------------------------
+✅ How It Works:
+Starts new pods ➔ Waits for readiness ➔ Terminates old pods ➔ Repeats.
+----------------------------------------------------------------------------------------------------------------
+✅ Example:
+strategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxSurge: 1
+    maxUnavailable: 1
+----------------------------------------------------------------------------------------------------------------
+✅ Real-Time Use Case:
+Most web applications, microservices, REST APIs where downtime is unacceptable.
+----------------------------------------------------------------------------------------------------------------
+✅ Pros:
+Zero downtime.
+Built-in and easy.
+✅ Cons:
+No manual traffic control.
+Harder to instantly roll back if issues occur.
+----------------------------------------------------------------------------------------------------------------
+✅ Rollback:
+kubectl rollout undo deployment my-app
+===================================================================================================
+RECREATE DEPLOYMENT
+===================================================================================================
+✅ What It Is:
+Stops all old pods first, then starts new pods.
+Causes downtime, but ensures clean state.
+----------------------------------------------------------------------------------------------------------------
+✅ Example:
+strategy:
+  type: Recreate
+----------------------------------------------------------------------------------------------------------------
+✅ Real-Time Use Case:
+Applications that cannot have multiple versions running at once (e.g., apps with strict database schema dependencies).
+----------------------------------------------------------------------------------------------------------------
+✅ Pros:
+Clean restart, fewer version conflicts.
+----------------------------------------------------------------------------------------------------------------
+✅ Cons:
+Downtime.
+Not suitable for high-availability apps.
+===================================================================================================
+BLUE-GREEN DEPLOYMENT
+===================================================================================================
+✅ What It Is:
+Maintain two parallel environments:
+Blue = current version.
+Green = new version.
+
+Switch all traffic to Green when it's tested and ready.
+----------------------------------------------------------------------------------------------------------------
+✅ How:
+Two Deployments (Blue & Green).
+One Service that switches between them.
+----------------------------------------------------------------------------------------------------------------
+✅ Real-Time Use Case:
+Finance, Healthcare, eCommerce where instant rollback is mandatory.
+----------------------------------------------------------------------------------------------------------------
+✅ Pros:
+Zero downtime.
+Easy rollback (just flip the Service selector).
+----------------------------------------------------------------------------------------------------------------
+✅ Cons:
+Needs double resources (both environments run in parallel).
+More complex.
+----------------------------------------------------------------------------------------------------------------
+✅ Switch Service:
+kubectl patch service my-app-service -p '{"spec":{"selector":{"version":"green"}}}'
+kubectl set image deployment/<deployment-name> <container-name>=<image>:<tag> -n <namespace>
+===================================================================================================
+CANARY DEPLOYMENT
+===================================================================================================
+✅ What It Is:
+Gradually release new version to a small percentage of users.
+Slowly increase exposure while monitoring metrics.
+Roll back instantly if issues appear.
+----------------------------------------------------------------------------------------------------------------
+✅ How:
+Deploy canary deployment with fewer replicas.
+One shared Service.
+----------------------------------------------------------------------------------------------------------------
+✅ Real-Time Use Case:
+High-risk apps like payment systems, critical APIs.
+----------------------------------------------------------------------------------------------------------------
+✅ Pros:
+Minimal risk.
+Early detection of problems.
+----------------------------------------------------------------------------------------------------------------
+✅ Cons:
+Requires manual or automated scaling.
+Monitoring is essential.
+----------------------------------------------------------------------------------------------------------------
+✅ Commands:
+kubectl scale deployment my-app-canary --replicas=3
+===================================================================================================
+📊 Deployment Strategy Comparison:
+Strategy | Downtime | Rollback Speed Traffic Control | Resource Cost
+----------------------------------------------------------------------------------------------------------------
+Rolling Update ❌ None Medium ❌ No Low
+Recreate ✅ Yes Medium ❌ No Low
+Blue-Green ❌ None ✅ Instant ✅ Yes High (double)
+Canary ❌ None ✅ Instant ✅ Yes (partial) Medium
+===================================================================================================
+📝 Key Points in Production:
+✅ Always use Rolling Update or Blue-Green for stateless applications.
+✅ Use Canary for high-risk changes where user experience is critical.
+✅ Avoid Recreate unless the app requires it (legacy or stateful apps).
