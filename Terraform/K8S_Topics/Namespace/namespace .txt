@@ -1,0 +1,49 @@
+===================================================================================
+NAMESPACES
+===================================================================================
+Namespaces are virtual clusters within a physical Kubernetes cluster.
+👉 They allow you to:
+Group related resources together
+Isolate teams, environments, or applications
+Apply resource limits, access controls, and policies at the namespace level.
+-----------------------------------------------------------------------------------
+Namespace Purpose:
+default >  For all resources when no namespace is specified
+kube-system > System components like CoreDNS, kube-proxy
+kube-public > Public readable resources (rarely used) > publily accesible info .visible to all users >like configMap > cluster-info
+kube-node-lease > Node heartbeat tracking for performance
+-----------------------------------------------------------------------------------
+🔑 Features of Namespaces in Kubernetes:
+Feature Description
+✅ Resource Isolation > Separate apps, environments (dev, staging, prod)
+✅ Access Control (RBAC) > Apply RoleBindings per namespace (team isolation)
+✅ Resource Quotas & Limits Control > CPU, memory, pod count per namespace
+✅ Network Policies > Apply different pod-to-pod traffic rules
+✅ Name Collision Avoidance >  Same resource names (like Service frontend) can exist in different namespaces
+✅ Team & Application Separation > Multi-tenant clusters without interference
+
+------------------------------------------------------------------------------------
+✅ Real-Life Examples of Namespaces:
+Namespace What’s Inside?
+dev > Development deployments & services
+staging > Pre-production testing apps
+prod > Production microservices
+monitoring > Prometheus, Grafana, AlertManager
+logging > Loki, FluentBit, Elasticsearch
+-------------------------------------------------------------------------------------
+COMMANDS
+List namespaces > kubectl get namespaces
+Create a namespace > kubectl create namespace dev
+Run a pod in a namespace > kubectl run nginx --image=nginx -n dev
+View resources in a namespace > kubectl get all -n dev
+Set default namespace for kubectl > kubectl config set-context --current --namespace=dev
+--------------------------------------------------------------------------------------
+benefit Why It Matters in Production
+
+Security Isolation Teams or apps can’t accidentally access each other’s resources
+Compliance Control Resource & access restrictions per environment
+Operational Clarity Easier management, monitoring, and cost tracking
+Disaster Recovery Targeted backups/restores per namespace
+---
+👉 In short: ✅ Namespaces = Isolation + Resource Control + Security
+✅ Essential for multi-team, multi-environment production clusters.
