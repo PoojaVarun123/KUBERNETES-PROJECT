@@ -1,0 +1,214 @@
+eks version
+EKS Auto mode cluster
+Why managed? Are 3 clusters managed?
+Nodegroup connected the bastion host and the session manager
+network policies:  we have sg 
+=========================================================================================================================================
+SERVICES
+=========================================================================================================================================
+1) Nodeport
+2) Cluster IP
+3) Load balancer > NLB or Classic (now NLB)
+4) External name > 
+=========================================================================================================================================
+ALB CONTROLLER for INGRESS
+=========================================================================================================================================
+Steps:
+1) We have to check whether the OIDC provider is associated with EKS cluster
+eksctl utils associate-iam-oidc-provider \
+  --region <your-region> \
+  --cluster <your-cluster-name> \
+  --approve
+  
+2) Create AWSLoadBalancerControllerPolicy
+curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/main/docs/install/iam_policy.json
+aws iam create-policy \
+  --policy-name AWSLoadBalancerControllerIAMPolicy \
+  --policy-document file://iam-policy.json
+
+3) Create IRSA > IAM trust policy role and Service account
+eksctl create iamserviceaccount \
+  --cluster <your-cluster-name> \
+  --namespace kube-system \
+  --name aws-load-balancer-controller \
+  --attach-policy-arn arn:aws:iam::<your-account-id>:policy/AWSLoadBalancerControllerIAMPolicy \
+  --approve
+
+4) Install CRDs for TargetGroupBinding
+kubectl apply -k "github.com/aws/eks-charts/stable/aws-load-balancer-controller//crds?ref=master"
+
+5) Add Helm repo > Install Controller with Helm 
+helm repo add eks https://aws.github.io/eks-charts
+helm repo update
+helm install aws-load-balancer-controller eks/aws-load-balancer-controller \
+  -n kube-system \
+  --set clusterName=<your-cluster-name> \
+  --set serviceAccount.create=false \
+  --set serviceAccount.name=aws-load-balancer-controller \
+  --set region=<your-region> \
+  --set vpcId=<your-vpc-id>
+=============================================================================================================================================
+EBS CONTROLLER
+=============================================================================================================================================
+1) We have to check whether the OIDC provider is associated with EKS cluster
+2) Create IRSA + create AWSLoadBalancerControllerPolicy
+(IAM role of trust policy will be created by default 
+eksctl create iamserviceaccount \
+        --name ebs-csi-controller-sa \
+        --namespace kube-system \
+        --cluster my-cluster \
+        --role-name AmazonEKS_EBS_CSI_DriverRole \
+        --role-only \
+        --attach-policy-arn arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy \
+        --approve
+
+3) Add Helm repo > Install Controller with Helm 
+helm repo add aws-ebs-csi-driver https://kubernetes-sigs.github.io/aws-ebs-csi-driver
+helm repo update
+helm install aws-ebs-csi-driver aws-ebs-csi-driver/aws-ebs-csi-driver \
+  --namespace kube-system \
+  --set enableVolumeSnapshot=true \
+  --set controller.serviceAccount.create=true \
+  --set controller.serviceAccount.name=ebs-csi-controller-sa
+
+✅ This will:
+Install the driver
+Create the necessary ServiceAccount automatically
+Install snapshot CRDs (if needed)
+
+kubectl get pods -n kube-system -l app.kubernetes.io/name=aws-ebs-csi-driver
+
+=============================================================================================================================================
+EFS CONTROLLER
+=============================================================================================================================================
+1) If using Pod Identities
+export cluster_name=my-cluster
+  export role_name=AmazonEKS_EFS_CSI_DriverRole
+  eksctl create podidentityassociation \
+    --service-account-name efs-csi-controller-sa \
+    --namespace kube-system \
+    --cluster $cluster_name \
+    --role-name $role_name \
+    --permission-policy-arns arn:aws:iam::aws:policy/service-role/AmazonEFSCSIDriverPolicy
+    
+2) If using IAM roles for service accounts
+export cluster_name=my-cluster
+export role_name=AmazonEKS_EFS_CSI_DriverRole
+eksctl create iamserviceaccount \
+    --name efs-csi-controller-sa \
+    --namespace kube-system \
+    --cluster $cluster_name \
+    --role-name $role_name \
+    --role-only \
+    --attach-policy-arn arn:aws:iam::aws:policy/service-role/AmazonEFSCSIDriverPolicy \
+    --approve
+TRUST_POLICY=$(aws iam get-role --output json --role-name $role_name --query 'Role.AssumeRolePolicyDocument' | \
+    sed -e 's/efs-csi-controller-sa/efs-csi-*/' -e 's/StringEquals/StringLike/')
+aws iam update-assume-role-policy --role-name $role_name --policy-document "$TRUST_POLICY"
+
+3) Add Helm repo > Install Controller with Helm 
+helm repo add aws-efs-csi-driver https://kubernetes-sigs.github.io/aws-efs-csi-driver
+helm repo update
+helm install aws-efs-csi-driver aws-efs-csi-driver/aws-efs-csi-driver \
+  --namespace kube-system \
+  --set controller.serviceAccount.create=true \
+  --set controller.serviceAccount.name=efs-csi-controller-sa
+kubectl get pods -n kube-system -l app.kubernetes.io/name=aws-efs-csi-driver
+
+Download if CRD is required for Snapshots
+==============================================================================================================================================
+CNI CONTROLLER-CALICO
+==============================================================================================================================================
+1) Download & Apply Calico Manifest (for Kubernetes ≥ v1.21)
+kubectl apply -f https://docs.projectcalico.org/manifests/calico.yaml
+
+👉 This deploys:
+calico-node pods (on each node)
+calico-kube-controllers
+CRDs like NetworkPolicy, GlobalNetworkPolicy
+
+2) Verify Installation
+kubectl get pods -n kube-system -l k8s-app=calico-node
+kubectl get daemonset calico-node -n kube-system
+
+3) Confirm NetworkPolicy Support
+kubectl api-resources | grep -i networkpolicy
+✅ You should see:
+networkpolicies          netpol                         v1
+networkpolicies          calico.org/v3
+
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: deny-all
+  namespace: default
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+✅ This denies all traffic inside the namespace.
+OR
+
+helm repo add projectcalico https://projectcalico.docs.tigera.io/charts
+helm repo update
+helm install calico projectcalico/tigera-operator --namespace tigera-operator --create-namespace
+
+👉 This installs:
+Calico networking
+Calico NetworkPolicy support
+Calico Operator (for managing CRDs)
+
+🚀 3️⃣ Enabling Strict Network Policy Mode (Zero Trust Networking)
+✅ By default, Kubernetes allows all traffic unless blocked by a policy.
+
+======================================================================================================================================
+PROBES
+======================================================================================================================================
+Startup Probe
+Livliness Probe
+Readness Probe
+======================================================================================================================================
+POD DISRUPTION BUDGET
+======================================================================================================================================
+======================================================================================================================================
+CUSTOM RESOURCE DEFINITIONS
+======================================================================================================================================
+======================================================================================================================================
+RESOURCE QUOTA
+Resource Requests
+Resource Limit
+======================================================================================================================================
+======================================================================================================================================
+AFFINTY
+Pod affinity
+Node Affinity
+Anti-Pod Affinity
+PreferredSchedulingDeferredRunning
+RequiredSchedulingDeferredRunning
+======================================================================================================================================
+TAINTS AND TOLERATIONS
+======================================================================================================================================
+======================================================================================================================================
+NAMESPACES
+======================================================================================================================================
+======================================================================================================================================
+DEPLOYMENT STRATEGIES
+======================================================================================================================================
+======================================================================================================================================
+ISTIO SERVICE MESH
+======================================================================================================================================
+HORIZONTAL POD AUTOSCALING 
+VIRTICAL POD AUTOSCALING
+CLUSTER AUTOSCALING
+======================================================================================================================================
+
+======================================================================================================================================
+SECRETS from secret manager
+======================================================================================================================================
+======================================================================================================================================
+MONITORING
+======================================================================================================================================
+======================================================================================================================================
+LOGGING
+======================================================================================================================================
