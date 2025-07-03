@@ -1,0 +1,270 @@
+=========================================================================================
+NAMESPACE
+=========================================================================================
+✅ Here’s a set of ready-to-use Kubernetes YAMLs for 
+Namespace creation
+Resource Quota
+LimitRange
+RoleBinding
+NetworkPolicy
+-----------------------------------------------------------------------------------------
+🚀 1️⃣ Namespace Creation
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: dev
+-----------------------------------------------------------------------------------------  
+🚀 2️⃣ ResourceQuota YAML (Limit resources in the namespace)
+
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: dev-resource-quota
+  namespace: dev
+spec:
+  hard:
+    pods: "10"
+    requests.cpu: "2"
+    requests.memory: "4Gi"
+    limits.cpu: "4"
+    limits.memory: "8Gi"
+
+✅ Controls:
+Max pods = 10
+Max CPU = 4 cores
+Max Memory = 8Gi
+-----------------------------------------------------------------------------------------
+🚀 3️⃣ LimitRange YAML (Set default CPU/memory per pod/container)
+✅ Sets default requests and limits for containers in the namespace.
+
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: dev-limit-range
+  namespace: dev
+spec:
+  limits:
+  - default:
+      cpu: "500m"
+      memory: "512Mi"
+    defaultRequest:
+      cpu: "200m"
+      memory: "256Mi"
+    type: Container
+-----------------------------------------------------------------------------------------
+🚀 4️⃣ RoleBinding YAML (User Access Control in Namespace)
+✅ Gives user Alice read-only access (view) inside the dev namespace.
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: dev-readonly-binding
+  namespace: dev
+subjects:
+- kind: User
+  name: alice@example.com        # Update with your IAM username or serviceaccount
+roleRef:
+  kind: Role
+  name: view                     # Use existing "view" role
+  apiGroup: rbac.authorization.k8s.io
+-----------------------------------------------------------------------------------------
+🚀 5️⃣ Default Deny All NetworkPolicy YAML (Zero Trust)
+✅ Denies all traffic until specific policies are created.
+
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: dev-deny-all
+  namespace: dev
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+
+------------------------------------------------------------------------------------------------------------------------
+✅ How to Apply All:
+kubectl apply -f namespace.yaml
+kubectl apply -f resourcequota.yaml
+kubectl apply -f limitrange.yaml
+kubectl apply -f rolebinding.yaml
+kubectl apply -f networkpolicy.yaml
+---
+👉 These YAMLs give you:
+
+Namespace isolation
+Resource restrictions
+Role-based access
+Strict Zero Trust networking
+===========================================================================================================================
+✅ Perfect! For environment isolation in Kubernetes, you typically create separate namespaces for each environment—
+such as dev, staging, and production—and apply resource limits, access controls, and network policies to isolate them.
+Here’s a full YAML-based setup for environment isolation:
+---
+🚀 1️⃣ Create Namespaces for Environment Isolation
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: dev
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: staging
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: production
+
+✅ This creates three isolated environments: dev, staging, and production.
+---
+🚀 2️⃣ Apply ResourceQuota per Environment
+
+✅ Example: production namespace stricter limits
+
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: prod-quota
+  namespace: production
+spec:
+  hard:
+    pods: "50"
+    requests.cpu: "10"
+    requests.memory: "32Gi"
+    limits.cpu: "20"
+    limits.memory: "64Gi"
+
+👉 Create similar smaller quotas for dev and staging namespaces.
+---------------------------------------------------------------------
+🚀 3️⃣ Apply LimitRange per Environment
+✅ Example: default pod resource limits for staging:
+
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: staging-limitrange
+  namespace: staging
+spec:
+  limits:
+  - default:
+      cpu: "1"
+      memory: "1Gi"
+    defaultRequest:
+      cpu: "500m"
+      memory: "512Mi"
+    type: Container
+
+-----------------------------------------------------------------------
+
+🚀 4️⃣ RBAC RoleBinding for Team Access Isolation
+✅ Example: **grant only Devops team access to production
+-----------------------------------------------------------------------
+NAMESPACE : MONITORING AND LOGGING
+
+🚀 1️⃣ Namespaces for Monitoring & Logging:
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: monitoring
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: logging
+
+✅ Creates two dedicated namespaces:
+monitoring → for Prometheus, Grafana, AlertManager, etc.
+logging → for Loki, Fluent Bit, Elasticsearch, etc.
+
+----------------------------------------------------------------------------------------------
+🚀 2️⃣ Deploying Monitoring Stack (Prometheus + Grafana) ➔ in monitoring namespace:
+
+✅ Prometheus Example (Helm or YAML):
+
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm install kube-prometheus prometheus-community/kube-prometheus-stack --namespace monitoring --create-namespace
+
+✅ Grafana will also be included automatically.
+----------------------------------------------------------------------------------------------
+🚀 3️⃣ Deploying Logging Stack (Loki + Fluent Bit) ➔ in logging namespace:
+
+✅ Loki + Grafana Example:
+
+helm repo add grafana https://grafana.github.io/helm-charts
+helm install loki grafana/loki-stack --namespace logging --create-namespace
+
+✅ Fluent Bit will push logs to Loki, and Grafana will visualize them.
+----------------------------------------------------------------------------------------------
+🚀 4️⃣ Apply ResourceQuota to Monitoring & Logging Namespaces:
+
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: monitoring-quota
+  namespace: monitoring
+spec:
+  hard:
+    pods: "10"
+    requests.cpu: "4"
+    requests.memory: "8Gi"
+
+👉 Apply similar quotas to the logging namespace.
+----------------------------------------------------------------------------------------------
+🚀 5️⃣ Apply LimitRange to Control Pod Sizes:
+
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: monitoring-limit-range
+  namespace: monitoring
+spec:
+  limits:
+  - default:
+      cpu: "500m"
+      memory: "1Gi"
+    defaultRequest:
+      cpu: "200m"
+      memory: "512Mi"
+    type: Container
+-------------------------------------------------------------------------------------------------
+🚀 6️⃣ Apply NetworkPolicy (Optional) ➔ Isolate Monitoring & Logging:
+
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: deny-all-monitoring
+  namespace: monitoring
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+
+✅ Strict Zero Trust ➔ then open specific policies as needed.
+
+----------------------------------------------------------------------------------------------
+✅ Real-Time Production Practice:
+
+Namespace What Goes Inside
+monitoring > Prometheus, Grafana, Alertmanager, Blackbox
+logging >  Loki, Fluent Bit, Elasticsearch, Kibana
+dev > Dev applications
+staging > Staging applications
+production > Prod applications
+
+
+
+---
+
+👉 Why separate namespaces?
+
+Better resource control
+
+Easier RBAC and team permissions
+
+Clean log and metrics separation
