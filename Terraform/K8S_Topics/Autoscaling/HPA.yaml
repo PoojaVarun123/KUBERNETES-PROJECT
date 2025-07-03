@@ -122,3 +122,9 @@ spec:
 
 ✅ Meaning:
 If per-pod requests/second > 100 → scaling happens.
+CPU High CPU utilization > 60%
+Memory High Memory utilization > 70%
+Custom High application-specific load (e.g., requests/sec, QPS) > 100 RPS
+
+
+
