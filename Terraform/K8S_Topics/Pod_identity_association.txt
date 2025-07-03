@@ -1,0 +1,60 @@
+POD IDENTITY ASSOCIATION
+
+The process of securely giving Kubernetes pods the ability to access AWS services using IAM roles, 
+without giving permissions to the whole worker node or EC2 instance.
+
+This is done using IAM Roles for Service Accounts (IRSA).
+---
+✅ What is Pod Identity Association (in simple words)?
+👉 It means:
+You associate a Kubernetes ServiceAccount (used by pods) with an IAM Role (in AWS).
+This lets the pod assume the IAM role directly, and access AWS services (S3, DynamoDB, SQS, etc.) without 
+needing AWS credentials inside the pod.
+---
+✅ Why is Pod Identity Association Important?
+Without Pod Identity (Old way) With Pod Identity (IRSA)
+You assign IAM role to EC2 Node You assign IAM role to Pod via ServiceAccount
+All pods on the node share the same IAM permissions Each pod can have fine-grained IAM permissions
+✅ This improves:
+Security
+Isolation
+Least Privilege Principle
+
+---
+✅ How does it work? (Step by Step Summary)
+Step What You Do
+1️⃣ Enable OIDC provider on the EKS cluster
+2️⃣ Create an IAM Role with a trust policy for OIDC
+3️⃣ Create a Kubernetes ServiceAccount linked to that IAM Role
+4️⃣ Deploy pods using that ServiceAccount
+5️⃣ Pod automatically assumes the role without storing any keys
+---
+✅ Example in Real Life:
+Pod → ServiceAccount → IAM Role → AWS Access
+Your app pod uses a SA → SA annotated with role → Pod talks to S3 securely
+---
+✅ Quick Example: Pod Identity Association
+
+1. Create Service Account:
+eksctl create iamserviceaccount \
+  --name s3-reader \
+  --namespace default \
+  --cluster my-eks-cluster \
+  --attach-policy-arn arn:aws:iam::123456789012:policy/S3ReadOnlyPolicy \
+  --approve
+
+2. Deploy Pod using the Service Account:
+apiVersion: v1
+kind: Pod
+metadata:
+  name: my-pod
+spec:
+  serviceAccountName: s3-reader
+  containers:
+  - name: app
+    image: my-app-image
+
+👉 This pod can now access S3 with no AWS keys inside.
+---
+✅ This whole process is what we call “Pod Identity Association”—and in AWS, it is implemented via 
+IRSA (IAM Roles for Service Accounts).
