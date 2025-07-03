@@ -1,0 +1,102 @@
+==========================================================================================
+ROLLING UPDATE
+==========================================================================================
+kubectl rollout history deployment my-app -n dev
+kubectl rollout undo deployment my-app -n dev
+kubectl rollout history deployment my-app -n dev > rollout to specific version
+kubectl rollout undo deployment my-app --to-revision=3 -n dev
+kubectl rollout pause deployment my-app -n dev
+kubectl set image deployment/my-app my-app=myrepo/my-app:v3 -n dev
+     > This triggers a rolling update without changing YAML.
+==========================================================================================
+🚀 1. Old Deployment YAML (deployment-v1.yaml) — v1 Image
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-app
+  namespace: dev
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: web-app
+  template:
+    metadata:
+      labels:
+        app: web-app
+    spec:
+      containers:
+      - name: web-app
+        image: my-docker-repo/web-app:v1
+        ports:
+        - containerPort: 80
+
+✅ Apply this first:
+
+kubectl apply -f deployment-v1.yaml
+
+Commands to change to v2
+1) Set image
+2) using sed through Jenkinsfile
+==========================================================================================
+pipeline {
+  agent any
+
+  environment {
+    DEPLOYMENT_NAME = "web-app"
+    CONTAINER_NAME = "web-app"
+    NAMESPACE = "dev"
+    IMAGE_NAME = "my-docker-repo/web-app"
+    IMAGE_TAG = "v${BUILD_NUMBER}"
+  }
+
+  stages {
+
+    stage('Build Docker Image') {
+      steps {
+        sh """
+        docker build -t ${IMAGE_NAME}:${IMAGE_TAG} .
+        docker push ${IMAGE_NAME}:${IMAGE_TAG}
+        """
+      }
+    }
+
+    stage('Update Deployment Image') {
+      steps {
+        sh """
+        kubectl set image deployment/${DEPLOYMENT_NAME} ${CONTAINER_NAME}=${IMAGE_NAME}:${IMAGE_TAG} -n ${NAMESPACE}
+        """
+      }
+    }
+
+    stage('Check Rollout Status') {
+      steps {
+        sh """
+        kubectl rollout status deployment/${DEPLOYMENT_NAME} -n ${NAMESPACE}
+        """
+      }
+    }
+
+    stage('Rollback on Failure') {
+      steps {
+        script {
+          def confirmRollback = input message: "Do you want to rollback to previous version?", parameters: [booleanParam(defaultValue: false, name: 'ROLLBACK')]
+          if (confirmRollback) {
+            sh "kubectl rollout undo deployment/${DEPLOYMENT_NAME} -n ${NAMESPACE}"
+          }
+        }
+      }
+    }
+  }
+}
+
+Summary: Build Docker Image Build an image with a version like v45 and push it
+Update Deployment Image Changes the running deployment image ➔ triggers Rolling Update
+Check Rollout Status Monitors if the rollout succeeded or failed
+Rollback on Failure: Manual step to roll back instantly if needed
