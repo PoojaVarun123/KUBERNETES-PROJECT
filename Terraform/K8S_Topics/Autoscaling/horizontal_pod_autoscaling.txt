@@ -1,0 +1,256 @@
+Pre-requisites:
+HPA > metrics server + Resource Requests/Limit in pods + prometheus Adapter(optional) for custom metrics
+VPA > metrice server + vertical pod autoscaler + Resource Requests/Limit in pods
+cluster > cluster autoscaler + iam role and policy that allow autoscaling + Resource Requests/Limit in pods + nodegroup with max/min capacity
+=========================================================================================
+HorizontalPodAutoscaler
+=========================================================================================
+-Horizontal Pod Autoscaling (HPA) → Scale by Number of Pods
+-Increases or decreases the number of pod replicas based on CPU, memory, or custom metrics.
+-Your app gets sudden traffic spikes → new pods are added automatically.
+=========================================================================================
+Vertical Pod Autoscaling (VPA) → Scale Pod Resource Limits (CPU/Memory)
+=========================================================================================
+-Adjusts the CPU and memory requests/limits of the pod automatically, but doesn’t change the number of pods
+-A long-running app that uses more memory over time → memory request is increased.
+-Cost-saving: reducing unused resource reservations.
+
+✅ Example: VPA YAML (Recommendation Only)
+
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: my-app-vpa
+  namespace: production
+spec:
+  targetRef:
+    apiVersion: "apps/v1"
+    kind: Deployment
+    name: my-app
+  updatePolicy:
+    updateMode: "Auto"  # Options: Auto, Off, Initial
+
+✅ Real-time Example:
+
+A data-processing app’s memory usage grows → VPA increases the pod memory request to avoid OOM.
+
+
+✅ Note:
+
+VPA restarts pods to apply changes.
+
+Works best for batch jobs, data crunching, ML apps.
+
+
+
+---
+=========================================================================================
+Cluster Autoscaling → Scale Node Pool (Add/Remove Worker Nodes)
+=========================================================================================
+Increases or decreases the number of EC2 instances (nodes) in your cluster when:
+  -There are pending pods that can't be scheduled (scale out).
+  -Nodes are under-utilized (scale in).
+Running jobs that suddenly need more CPU/RAM → cluster adds new nodes automatically.
+
+
+✅ Example: EKS with Cluster Autoscaler
+1. Install Cluster Autoscaler:
+helm upgrade --install cluster-autoscaler \
+  oci://registry.k8s.io/autoscaling/cluster-autoscaler-chart \
+  --namespace kube-system \
+  --set autoDiscovery.clusterName=your-cluster-name \
+  --set awsRegion=us-east-1
+
+2. IAM permissions for nodes to allow autoscaling.
+App uses HPA to scale to 30 pods → current nodes can’t handle it → 
+
+Cluster Autoscaler adds 2 new EC2 instances → pods get scheduled.
+
+✅ Works with:
+AWS EKS (Managed Node Groups or EC2 Auto Scaling Groups)
+GKE
+AKS
+
+
+
+
+
+✅ Quick Summary Table:
+HorizontalPodAutoscaler : (HPA) Number of pods CPU, Memory, Custom Metrics > Web apps, APIs, real-time scaling
+VerticalPodAutoscaler : (VPA) CPU/Memory of pods > Resource usage Stateful apps, data crunching, cost-saving
+Cluster Autoscaler : Number of cluster nodes Pending pods, idle nodes Ensuring pods always find compute
+
+
+
+---
+
+🛠 Real-time Combined Example (Used in Production):
+
+1) App Deployment has HPA:
+minReplicas: 3
+maxReplicas: 20
+
+2) Pods have VPA to automatically increase memory request from 512Mi → 1Gi as needed.
+
+3) Cluster Autoscaler is running → scales nodes when new pods can’t be scheduled.
+
+
+✅ Result:
+Auto pod scale
+Auto pod resource tuning
+Auto node scale
+
+
+
+---
+
+👉 I can give you: ✅ Complete YAMLs for all 3 in one example
+✅ Jenkins pipeline that checks resource metrics and triggers scaling
+✅ EKS setup commands for Cluster Autoscaler
+
+
+Pooja, [04-07-2025 01:02]
+Perfect—here’s how you can extend your Horizontal Pod Autoscaler (HPA) to include both Memory and Custom Metrics along with CPU for a full production-grade real-time autoscaling setup.
+
+
+---
+
+✅ 1️
+
+
+---
+
+✅ Real Production Notes:
+
+Component Needed? Used For
+
+Metrics Server ✅ Mandatory CPU & Memory metrics
+Prometheus Adapter ✅ Optional Custom application metrics (K8s native)
+KEDA ✅ Optional Event-driven autoscaling (queue length, external)
+
+
+
+---
+
+✅ Example Custom Metric Names you can use (with Prometheus Adapter):
+
+http_requests_total
+
+queue_length
+
+latency_seconds
+
+
+
+---
+
+👉 If you’d like: ✅ I can help you set up Prometheus Adapter YAMLs for custom metrics.
+✅ Or give you a Jenkinsfile to trigger actions based on scaling events.
+
+Would you like to go deeper into any of these?
+
+Pooja, [04-07-2025 01:02]
+✅ To achieve all three types of autoscaling in Kubernetes—Horizontal Pod Autoscaling (HPA), Vertical Pod Autoscaling (VPA), and Cluster Autoscaler (CA)—you need to set up specific prerequisites for each.
+
+Here’s a real-world production checklist for each one:
+
+
+---
+
+🚀 1️⃣ Horizontal Pod Autoscaling (HPA) — Pod Count Scaling
+
+✅ Prerequisites:
+
+Requirement Why Needed? How to Set Up
+
+Metrics Server HPA relies on live CPU/Memory metrics kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+Resource Requests/Limits Pods must define requests and limits for CPU & Memory Add resources section in deployment YAML
+Autoscaling API Kubernetes 1.18+ preferred for v2 HPA Use autoscaling/v2 in HPA YAML
+Optional: Custom Metrics Provider Needed for autoscaling on custom metrics like QPS, latency Prometheus Adapter or KEDA
+
+
+✅ HPA Only = ✅ Metrics Server + ✅ Resource Requests
+
+
+---
+
+🚀 2️⃣ Vertical Pod Autoscaling (VPA) — Pod Resource Scaling (CPU/Memory)
+
+✅ Prerequisites:
+
+Requirement Why Needed? How to Set Up
+
+VPA Controller Installed Provides recommendations and updates pod resources Install VPA: https://github.com/kubernetes/autoscaler/tree/master/vertical-pod-autoscaler
+Metrics Server Used for collecting CPU/Memory data Same as HPA
+VPA YAML Must create a VerticalPodAutoscaler object linked to the Deployment VPA YAML
+Restartable Pods VPA changes are applied via Pod restarts App should tolerate restarts gracefully
+
+
+✅ VPA Only = ✅ VPA Controller + ✅ Metrics Server + ✅ Pod restart tolerance
+
+
+---
+
+🚀 3️⃣ Cluster Autoscaler (CA) — Node Count Scaling
+
+✅ Prerequisites:
+
+Requirement Why Needed? How to Set Up
+
+Cluster Autoscaler Installed Automatically adjusts node pool size Install via Helm or YAML (EKS, GKE, AKS)
+IAM/Node Group Permissions (EKS) Needed to allow ASG scale-up/down Add AutoScalingFullAccess or custom IAM policy
+Proper Node Group Setup Managed Node Group or ASG with min/max sizes EKS Console / Terraform setup
+Pods with Resource Requests To trigger scaling when unschedulable Same as HPA requirements
+
+
+✅ Cluster Autoscaler Only = ✅ CA Installed + ✅ Node Group configured with autoscaling + ✅ IAM Role
+
+
+---
+
+📝 Full Prerequisites Table (All Three Together):
+
+Component HPA VPA Cluster Autoscaler
+
+✅ Metrics Server ✔️ ✔️ Optional (but useful)
+✅ Resource Requests/Limits in Pods ✔️ ✔️ ✔️
+✅ VPA Controller Installed  ✔️ 
+✅ Cluster Autoscaler Installed   ✔️
+✅ Node Group with min/max capacity   ✔️
+✅ IAM Role (EKS/AWS)   ✔️
+✅ App tolerates restarts (for VPA)  ✔️ 
+✅ Optional: Prometheus Adapter/KEDA ✔️ (for custom metrics)  
+
+
+
+---
+
+🔗 Real-Time Flow (All 3 Working Together):
+
+1. HPA scales number of pods based on CPU, memory, or custom metrics.
+
+
+2. If the nodes run out of space → Cluster Autoscaler adds new nodes automatically.
+
+
+3. If pods start using more memory/CPU than initially requested → VPA adjusts pod resource limits and triggers rolling restarts.
+
+
+
+✅ This combination is used in large production systems (banks, SaaS, e-commerce) where:
+
+Apps scale up/down based on load (HPA)
+
+Pods get right-sized (VPA)
+
+Cluster elasticity is maintained (CA)
+
+
+
+---
+
+👉 I can help you: ✅ Install Metrics Server, VPA, and Cluster Autoscaler step by step.
+✅ Write YAMLs for all 3 autoscalers.
+✅ Provide EKS setup with IAM for autoscaling.
+
+Would you like a full hands-on setup guide for these?
