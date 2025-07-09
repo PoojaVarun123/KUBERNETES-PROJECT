@@ -1,6 +1,6 @@
 1) Github > decentralized > open source source code managemnet tool > verison control system > enables collaboration,parrallel development,manage source code history
 2) Git
-Git is a version control system to manage source code history. 
+Git is a decentralized version control system to manage source code history. 
 GitHub is a hosting service for Git repositories online
 
 3)git branching strategy > gitfflow model
