@@ -13,16 +13,31 @@ ps -ef
   e : all processes
   f : full format ppid,time,command
 
-curl ifconfig.me---public adrress
-rsync -avz -e "ssh -i ec2key.pem" z4.txt ubuntu@65.0.170.15:/home/ubuntu/
+PING
+  -To check network connectivity
+  -to check the network layer 3
+
+CURL
+  -ifconfig.me---public address
+  -to check application/API/service available > to check the application layer
+
+rsync > remote sync > -avz -e "ssh -i ec2key.pem" z4.txt ubuntu@65.0.170.15:/home/ubuntu/
+  -syncs files/directories:both local and remote
+  -transfers only changes
+  - allows incremental backups
+  -preserves permissions ownership,timestamps 
+  -usecase: backups ,disaster recovery
+  -a preserve permissions
+  -v verbose
+
 scp -i ./ec2key.pem z4.txt ubuntu@65.0.170.15:/home/ubuntu/
 
 2) top 
   -ps used by all uers
-  - memory ,total tasks
+  - memory,total tasks
   - cpu, load average
   - swap memory, uptime 
-  -its like more live every 5 seconds it will get updated
+  -its like more live every 5 seconds, it will get updated
 
 3) netstat 
   -  sudo netstat -tulnp | grep nginx
@@ -77,7 +92,7 @@ When it comes to backing up or syncing files, nothing beats rsync, which is fast
 Unlike scp, which copies everything from scratch, rsync only transfers changed parts of files, which saves both time and bandwidth.
 rsync -avz /data/ user@remote:/backup/
 
-17. crontab – Schedule Jobs (Task Automation): 0 2 * * * /usr/bin/backup.sh
+17. crontab -e : – Schedule Jobs (Task Automation): 0 2 * * * /usr/bin/backup.sh
 
 18. tail -f – Live Log MonitoringWhen something goes wrong on a Linux system, logs are usually the first place you should look. 
   The tail -f command lets you watch logs in real time, which is super helpful for debugging.
@@ -116,9 +131,14 @@ chown changes the owner and group.
   locate -i filename 
   locate -r filename 
  locate is a very quick way of finding files on a large system. It performs a similar role to the find command but 
-works in a very different way. find looks through the file system until it finds your files (which can be slow but is almost always correct); 
-locate on the other hand searches a database in which the locations of files are maintained.  
+ works in a very different way. find looks through the file system until it finds your files (which can be slow but is almost always correct); 
+ l
+ocate on the other hand searches a database in which the locations of files are maintained.  
 
 28. for i in 1 2 3 4 5  
     do   
   echo “loop $i” done 
+29. hard link and soft link
+30. cut and awk
+31. curl and ping
+32.
