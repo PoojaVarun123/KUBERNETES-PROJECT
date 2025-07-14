@@ -5,9 +5,9 @@
   -  decentralized > open source code management tool > version control system > enables collaboration, parallel development, manages source code history
 
 
-3)git branching strategy > gitflow model
-  main > permanent
-  develop > permanent -- staging/QA
+3) git branching strategy > gitflow model
+   main > permanent
+   develop > permanent -- staging/QA
         feature-1
         feature-2
         release -- PRODUCT
