@@ -142,7 +142,15 @@ Ingress  > Routes HTTP(S) traffic; path- or host-based; TLS support; needs contr
          -Enforces strict placement control   
          -Taint types: NoSchedule, PreferNoSchedule, NoExecute
                Example: Taint a node for GPU workloads only.
-      -Scenarios:       
+      -Scenarios:     
+         -Dedicated DB nodes > dedicated=database:NoSchedule Block non-DB pods
+         -Control plane node > node-role.kubernetes.io/control-plane=:NoSchedule Protect master
+         -GPU workloads > only hardware=gpu:NoSchedule Restrict general workloads
+         -Spot nodes > lifecycle=spot:NoSchedule Prevent critical pods
+         -Logging nodes >  monitoring=true:NoSchedule Dedicated for observability
+         -Maintenance > maintenance=true: NoExecute Evict pods during upgrade
+         -Team A nodes  > team=team-a:NoSchedule Tenant/workload isolation
+         -Soft avoidance  > prefer=special:PreferNoSchedule Prefer but allow pods
 -------------------------------------------------------------------------------------------------------------
 17) Tolerations 
    -A toleration is applied to pods to allow them to be scheduled on nodes with matching taints.
