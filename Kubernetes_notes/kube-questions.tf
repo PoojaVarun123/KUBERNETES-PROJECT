@@ -204,5 +204,53 @@ Pod Affinity > Schedule a pod close to other pods
 Anti-Pod Affinity > Keep pods apart from each other
 Taints > Prevent scheduling on a node
 Tolerations > Allow scheduling on tainted nodes
+-------------------------------------------------------------------------------------------------------------
+23) Pod Disruption Budget
+-------------------------------------------------------------------------------------------------------------
+24) Custom Resource Definition
+-------------------------------------------------------------------------------------------------------------
+25) Horizontal Pod Autoscaling
+26) Cluster Autoscaling
+27) Vertical Pod Autoscaling
+28) Resource Limit
+29) Resource Request
+30) Namespaces
+31) Network policy
+32) Startup Probe
+33) Readiness Probe
+34) Livliness Probe
+35) ConfigMap 
+36) Secrets
+37) Rolling update
+38) Blue and Green
+39) Canary
+40) Recreate
+41) Pod Identity Association
+42) Istio-Service Mesh > Purpose > How it works
+43) Calico-Network Plugin
+44) Pod Security Policy
+45) Network Policy
+46) RBAC
+47) Role Binding
+48) Cluster Binding
+49) Service Account
+50) Kube Config
+51) Topology
+52) Annotations
+53) Kubernetes Federation
+54) Multi-Cluster Management Solutions: Rancher or Anthos
+55)  Multi Tenancy
+56) API
+57) Kubernetes Operators
+58) TLS termination
+59) How Scaling is Managed for Statefulsets
+60) OIDC
+61) how to upgrade workernodes
+
+diff between logs and describe
+Zaegar/Zepkins
+Velero
+etcd snapshotting
+
 
 
