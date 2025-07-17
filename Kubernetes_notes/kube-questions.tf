@@ -206,46 +206,203 @@ Taints > Prevent scheduling on a node
 Tolerations > Allow scheduling on tainted nodes
 -------------------------------------------------------------------------------------------------------------
 23) Pod Disruption Budget
+    -A Pod Disruption Budget (PDB) in Kubernetes is a policy that limits the number of pods that can be voluntarily disrupted (evicted) at a time.
+    -It ensures that a minimum number or percentage of pods remain available and running during operations like:
+        -Node drain (e.g., for upgrades)
+        -Cluster autoscaler removing nodes
+        -Voluntary eviction by an admin or automation
+    -Involuntary disruptions (like node crashes or hardware failures) are not governed by PDB.
+
+        Common Use Cases:
+            -Node maintenance or drain - Prevents all pods from being evicted at once, ensuring service stays up.
+            -Cluster autoscaler scale-down - Ensures critical apps aren't removed during optimization.
+            -Rolling updates - Maintains high availability by keeping a minimum number of pods running.
+            -High-availability apps - Guarantees a baseline service level during disruptions
 -------------------------------------------------------------------------------------------------------------
 24) Custom Resource Definition
+    -A Custom Resource Definition (CRD) is a way to extend Kubernetes by adding your own custom resource types.
+    -It lets you define new objects (like MyApp, Database, BackupJob, etc.) that behave like built-in Kubernetes resources (Pod, Deployment, etc.).
+    -Once a CRD is created, Kubernetes understands your new resource and you can use it with kubectl, YAML files, and APIs — just like native resources.
+  
+             Tool - Operator CRD Example - Purpose
+            -Cert-Manager - Certificate - Manage TLS certs automatically
+            -Prometheus Operator - ServiceMonitor - Monitor services for metrics
+            -Elastic Operator - Elasticsearch - Manage Elasticsearch clusters
+            -Kafka Operator - KafkaCluster - Automate Kafka deployments
+            -ArgoCD - Application  - Define and manage GitOps apps
+
 -------------------------------------------------------------------------------------------------------------
 25) Horizontal Pod Autoscaling
+    -HPA automatically scales the number of pod replicas up or down based on metrics like CPU, memory, or custom metrics (e.g., request rate).
+    Importance:
+          -Ensures your app handles increased load by adding pods.
+          -Reduces pods when demand drops to optimize resource usage.
+          -Maintains application performance and availability.
+          -Avoids manual intervention for scaling pods.
+    Use Cases:
+          -Web servers, APIs, or microservices with variable traffic.
+          -E-commerce sites during peak hours (scale from 5 to 20 pods).
+          -CI/CD jobs that run in parallel and need dynamic scaling.
+
+
+🧠 2. VPA – Vertical Pod Autoscaler
+
+✅ **Definition:
+
+
+
+
+---
+
+🧱 3. CA – Cluster Autoscaler
+
+✅ **Definition:
+
+
+---
+
+✅ Summary Table
+
+Feature > HPA > VPA > CA
+Definition > Scales number of pods > Adjusts CPU/memory per pod Scales number of nodes
+Importance > Handles traffic spikes >  Prevents under/over-resourcing Scales infrastructure
+Use Case >  Web/API services Stateful apps, batch jobs Cloud clusters, bursting workloads
+
+
+
+---
+
+Let me know if you want:
+
+✅ YAML examples for each one
+
+🗺 A diagram showing how all 3 interact
+
+📦 Setup guide for HPA + VPA + CA in one cluster
+-------------------------------------------------------------------------------------------------------------
 26) Cluster Autoscaling
+    -CA (Cluster Autoscaler)** automatically adds or removes nodes in a Kubernetes cluster depending on:
+        Whether pods are pending due to a lack of resources.
+        Whether nodes are underutilized and can be safely removed.
+    Importance:
+        -Ensures the cluster has enough capacity for all pods.
+        -Removes idle nodes to reduce cloud costs.
+        -Complements HPA and VPA by scaling the infrastructure layer.
+        -Keeps the cluster efficient and responsive to dynamic workloads.
+    Use Cases:
+        -Cloud-native apps running in AWS EKS, GCP GKE, or Azure AKS.
+        -Clusters using HPA or Jobs/CronJobs that cause bursts in demand.
+        -Clusters that must auto-scale up during peak hours and down afterward.
+-------------------------------------------------------------------------------------------------------------
 27) Vertical Pod Autoscaling
+    -VPA automatically adjusts the CPU and memory requests/limits of pods based on their real usage over time.
+    Importance:
+        -Helps prevent OOMKilled pods due to low memory limits.
+        -Avoids resource wastage caused by over-allocating CPU/memory.
+        -Right-sizes applications for performance and cost-efficiency.
+        -Makes resource management easier and data-driven.
+    Use Cases:
+        -Stateful applications like databases (PostgreSQL, MongoDB).
+        -Legacy apps that cannot scale horizontally.
+        -Batch jobs or data-processing apps with fixed replica count.
+-------------------------------------------------------------------------------------------------------------
 28) Resource Limit
+    -Resource Limits define the maximum amount of CPU and memory a container is allowed to use.
+        Purpose:
+            -Prevents a container from using too much CPU or memory.
+            -Ensures fair usage in a shared cluster.
+            -If memory exceeds the limit → the pod is OOMKilled.
+            -If CPU exceeds the limit → the pod is throttled (slowed down).
+    -Resource Limit > Maximum CPU/Memory allowed for a container. Prevents a container from overusing shared resources
+---
+resources:
+  requests:
+    memory: "256Mi"
+    cpu: "250m"
+  limits:
+    memory: "512Mi"
+    cpu: "500m"
+This means: the pod needs at least 256Mi memory and 250m CPU to run, and it can use up to 512Mi memory and 500m CPU.
+-------------------------------------------------------------------------------------------------------------
 29) Resource Request
+    -Resource Requests define the minimum amount of CPU and memory a container needs to run properly.
+        -Purpose:
+            -Tells the Kubernetes scheduler how much resource the pod needs.
+            -Helps Kubernetes find the right node that has enough resources.
+            -Guarantees that the requested amount will always be available for the pod.
+    -Resource Request - Minimum CPU/Memory needed by a container Scheduler ensures pod is placed on a node with enough resources
+-------------------------------------------------------------------------------------------------------------
 30) Namespaces
+    -A namespace is a logical partition within a Kubernetes cluster that helps separate and organize resources.
+    Purpose:
+        -Used to organize resources (pods, services, secrets, etc.)
+        -Helps manage multi-environment setups like dev, test, prod
+        -Supports access control (RBAC) and resource quotas
+        -Prevents name conflicts (e.g., nginx can exist in multiple namespaces)
+   -Namespace Logical partition in a cluster Organize, isolate, and manage workloads securely
+-------------------------------------------------------------------------------------------------------------
 31) Network policy
+-------------------------------------------------------------------------------------------------------------
 32) Startup Probe
+-------------------------------------------------------------------------------------------------------------
 33) Readiness Probe
+-------------------------------------------------------------------------------------------------------------
 34) Livliness Probe
+-------------------------------------------------------------------------------------------------------------
 35) ConfigMap 
+-------------------------------------------------------------------------------------------------------------
 36) Secrets
+-------------------------------------------------------------------------------------------------------------
 37) Rolling update
+-------------------------------------------------------------------------------------------------------------
 38) Blue and Green
+-------------------------------------------------------------------------------------------------------------
 39) Canary
+-------------------------------------------------------------------------------------------------------------
 40) Recreate
+-------------------------------------------------------------------------------------------------------------
 41) Pod Identity Association
+-------------------------------------------------------------------------------------------------------------
 42) Istio-Service Mesh > Purpose > How it works
+-------------------------------------------------------------------------------------------------------------
 43) Calico-Network Plugin
+-------------------------------------------------------------------------------------------------------------
 44) Pod Security Policy
+-------------------------------------------------------------------------------------------------------------
 45) Network Policy
+-------------------------------------------------------------------------------------------------------------
 46) RBAC
+-------------------------------------------------------------------------------------------------------------
 47) Role Binding
+-------------------------------------------------------------------------------------------------------------
 48) Cluster Binding
+-------------------------------------------------------------------------------------------------------------
 49) Service Account
+-------------------------------------------------------------------------------------------------------------
 50) Kube Config
+-------------------------------------------------------------------------------------------------------------
 51) Topology
+-------------------------------------------------------------------------------------------------------------
 52) Annotations
+-------------------------------------------------------------------------------------------------------------
 53) Kubernetes Federation
+-------------------------------------------------------------------------------------------------------------
 54) Multi-Cluster Management Solutions: Rancher or Anthos
+-------------------------------------------------------------------------------------------------------------
 55)  Multi Tenancy
+-------------------------------------------------------------------------------------------------------------
 56) API
+-------------------------------------------------------------------------------------------------------------
 57) Kubernetes Operators
+-------------------------------------------------------------------------------------------------------------
 58) TLS termination
-59) How Scaling is Managed for Statefulsets
+-------------------------------------------------------------------------------------------------------------
+59) How Scaling is Managed for Statefulset
+-------------------------------------------------------------------------------------------------------------
 60) OIDC
-61) how to upgrade workernodes
+-------------------------------------------------------------------------------------------------------------
+61) How to upgrade worker nodes
+-------------------------------------------------------------------------------------------------------------
 
 diff between logs and describe
 Zaegar/Zepkins
