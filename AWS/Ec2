@@ -1,0 +1,744 @@
+========================================================================================================================
+                                                           EC2
+========================================================================================================================
+🔹 Section 1: Theoretical Questions (Basic to Advanced)
+1. What is Amazon EC2 and what are its primary features?
+2. What are the different types of EC2 instances?
+3. Explain On-Demand, Reserved, and Spot Instances.
+4. What is an EC2 AMI?
+5. What is the difference between an AMI and a snapshot?
+6. What is an Elastic IP and how is it different from a public IP?
+7. Explain the lifecycle of an EC2 instance.
+8. What is the use of a key pair in EC2?
+9. How do EC2 instance types differ by generation and family (e.g., t3, m5, c6g)?
+10. What is instance store volume? How does it differ from EBS?
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+🔹 Section 2: Security & Networking
+11. How do security groups differ from NACLs in EC2?
+12. Can one EC2 instance have multiple security groups? Explain.
+13. How do you restrict SSH access to an EC2 instance securely?
+14. What is a placement group in EC2? Types?
+15. How does EC2 integrate with IAM roles?
+16. What is the difference between a private and public subnet in EC2 deployment?
+17. What ports must be open to host a web server on EC2?
+18. How do you assign a static IP to an EC2 instance?
+19. How do you protect an EC2 instance from brute force login attempts?
+20. Can you launch an EC2 instance without public IP? How would you access it?
+------------------------------------------------------------------------------------------------------------------------------------------------
+🔹 Section 3: Monitoring, Logging & Maintenance
+21. How can you monitor the performance of an EC2 instance?
+22. What are EC2 status checks?
+23. What is the difference between CloudWatch Agent and basic monitoring?
+24. How do you automate EC2 stop/start during off hours?
+25. How do you backup an EC2 instance daily?
+26. What are termination protection and stop protection in EC2?
+27. How do you enable detailed monitoring in EC2?
+------------------------------------------------------------------------------------------------------------------------------------------------
+🔹 Section 4: Cost Optimization
+28. How do Spot Instances help reduce cost?
+29. When would you choose Reserved Instances over On-Demand?
+30. How do you reduce EC2 costs in a dev/test environment?
+31. What is AWS Compute Savings Plans and how does it relate to EC2?
+------------------------------------------------------------------------------------------------------------------------------------------------
+🔹 Section 5: Storage and Backup
+32. What is the difference between EBS and instance store?
+33. What happens to EBS volume when you stop or terminate an EC2 instance?
+34. Can an EC2 instance have multiple EBS volumes? How?
+35. What is an EBS snapshot? How do you restore one?
+36. How can you automatically delete EBS volumes after instance termination?
+------------------------------------------------------------------------------------------------------------------------------------------------
+🔹 Section 6: High-Level Architecture & Best Practices
+37. How would you design a highly available EC2-based web application?
+38. How do you achieve auto-scaling for EC2 instances?
+39. Explain how EC2 integrates with Elastic Load Balancer (ELB).
+40. What is the best way to handle user uploads in a web app hosted on EC2?
+41. Describe a multi-AZ EC2 deployment strategy.
+42. How would you deploy EC2 instances using Infrastructure as Code (IaC)?
+43. What is EC2 Image Builder and how is it used?
+44. How can you secure EC2 instances hosting a public API?
+------------------------------------------------------------------------------------------------------------------------------------------------
+🔹 Section 7: Scenario-Based Questions
+45. You need to upgrade the OS of an EC2 instance with zero downtime. What approach would you use?
+46. Your EC2 instance CPU is spiking to 100%. How do you troubleshoot
+47. Your EC2 instance is unreachable via SSH. How do you recover it?
+48. You need to migrate a production server from one region to another. Steps?
+49. One of your EBS volumes got corrupted. What do you do?
+50. You need to create 50 identical EC2 instances across multiple AZs with minimal manual effort. How?
+=======================================================================================================================================================
+1. What is Amazon EC2 and what are its primary features?
+    Amazon EC2 (Elastic Compute Cloud) is a web service that provides resizable compute capacity (virtual machines) in the cloud. 
+    It enables developers to run applications on scalable infrastructure without the need for hardware investment.
+    Primary features:
+      Elasticity: Scale in or out based on demand.
+      Multiple instance types: Choose instances optimized for compute, memory, storage, etc.
+      Custom AMIs: Launch pre-configured or custom OS images.
+      Security: Control access using key pairs, security groups, and IAM.
+      Cost-effective: Pay only for what you use.
+---------------------------------------------------------------------------------------------------------------------------------------------------
+2. What are the different types of EC2 instances?
+    EC2 instances are grouped into families optimized for different workloads:
+    Instance Family Use Case Example
+      General Purpose (t3, t4g, m5) Balanced CPU-memory (web servers)
+      Compute Optimized (c5, c6g) High-performance CPUs (batch processing, game servers)
+      Memory Optimized (r5, x1e) RAM-heavy workloads (in-memory DBs, caching)
+      Storage Optimized (i3, d2) High IOPS (data warehouses, NoSQL DBs)
+      Accelerated Computing (p3, g4) GPUs for ML, AI, video rendering
+-------------------------------------------------------------------------------------------------------------------------------------------------
+3. Explain On-Demand, Reserved, and Spot Instances.
+    On-Demand: Pay-per-use. No commitment. Ideal for unpredictable workloads.
+    Reserved: Commit to 1 or 3 years for significant discounts (up to 72%). Ideal for long-term, steady workloads.  
+    Spot: Use spare AWS capacity for up to 90% off. Good for fault-tolerant, stateless applications but may be interrupted by 
+    AWS with 2 minutes’ notice.
+        Type Use Case
+              On-Demand Testing, short-term spikes
+              Reserved Long-term production apps
+              Spot Data analysis, CI/CD, batch jobs
+-------------------------------------------------------------------------------------------------------------------------------------------------
+4. What is an EC2 AMI?
+    AMI (Amazon Machine Image) is a template that contains the software configuration needed to launch EC2 instances. This includes:
+        A base operating system
+        Application server (e.g., Apache, Tomcat)
+        Custom application code
+        Optional data/configuration
+Use Case: Launch 10 identical web servers using a custom AMI with all pre-installed components.
+-------------------------------------------------------------------------------------------------------------------------------------------------
+5. What is the difference between an AMI and a snapshot?
+    Feature AMI Snapshot
+        Purpose > Launch EC2 instances > Backup EBS volume
+        Components > OS, software, > volume info, settings Data only (no boot info)
+        Usage > Instance creation > Volume restoration or AMI creation
+        File > System Full image with boot record > Volume-level backup only
+Summary: AMIs can include snapshots but are used for launching new EC2 instances. Snapshots are just backups of EBS volumes.
+-------------------------------------------------------------------------------------------------------------------------------------------------
+6. What is an Elastic IP and how is it different from a public IP?
+    Elastic IP (EIP) is a static public IPv4 address that is associated with your AWS account.
+    Key differences:
+        Elastic IP stays the same even if the instance is stopped and restarted.
+        Default public IP changes every time you stop/start the instance.
+        Use Case: Hosting a production web server where the IP must remain consistent for DNS.
+-------------------------------------------------------------------------------------------------------------------------------------------------
+7. Explain the lifecycle of an EC2 instance.
+    EC2 instance states:
+      State Description
+          Pending Instance is launching
+          Running Operational and reachable
+          Stopping Instance is shutting down (retain EBS)
+          Stopped Instance is off (no charges for compute)
+          Shutting-down Instance is terminating (data may be lost)
+          Terminated Instance and attached ephemeral storage are gone
+Tip: You can stop/start to avoid costs or update OS/configurations.
+-------------------------------------------------------------------------------------------------------------------------------------------------
+8. What is the use of a key pair in EC2?
+    Key Pair = Public + Private Key
+    AWS stores the public key on the instance.
+    You download the private key (.pem) and use it to SSH securely into the EC2 instance.
+Use Case: Secure login to Linux-based EC2 without needing a password.
+-------------------------------------------------------------------------------------------------------------------------------------------------
+9. How do EC2 instance types differ by generation and family?
+    Generation: Indicates hardware/software updates.
+    E.g., m3 → m4 → m5 → m6i — newer means better performance and efficiency.
+    Family: Indicates purpose.
+    t: Burstable
+    m: General purpose
+    c: Compute
+    r: Memory
+    g: Graviton (ARM-based processors)
+Example: c6g.large is a compute-optimized, 6th-gen, ARM-based instance.
+-------------------------------------------------------------------------------------------------------------------------------------------------
+10. What is instance store volume? How does it differ from EBS?
+    Feature Instance Store EBS
+      Type - Ephemeral, local disk - Persistent block storage
+      Data - Retention Lost on stop/terminate   - Retains data after stop
+      Bootable - Yes (with AMI)  - Yes
+      Performance - Very fast, tied to instance host  - High, scalable, network-attached
+Use Case: Caching, temporary files, batch processing (data can be lost).
+-------------------------------------------------------------------------------------------------------------------------------------------------
+11. What is the difference between stopping and terminating an EC2 instance?
+    Stopping an instance:
+        When you stop an EC2 instance, it shuts down the operating system (like doing a clean shutdown of your desktop/laptop).
+        The instance enters the stopped state.
+        You can start it again, and it retains the same instance ID (unless changed by configuration).
+        The root EBS volume and attached EBS volumes remain intact.
+        You only pay for EBS storage, not compute.
+    Terminating an instance:
+        When you terminate an EC2 instance, it is permanently deleted.
+        All associated EBS volumes are deleted (unless "Delete on Termination" is set to false).
+        You cannot restart a terminated instance—it’s gone forever.
+        Elastic IPs, if associated, are disassociated and may incur charges.
+
+Key Difference:
+Stop = Temporary shutdown (can be restarted).
+Terminate = Permanent deletion.
+-------------------------------------------------------------------------------------------------------------------------------------------------
+12. What are security groups in EC2 and how do they work?
+    Security Groups (SGs) are virtual firewalls that control inbound and outbound traffic for EC2 instances at the instance level.
+    They are stateful, meaning if an incoming request is allowed, the response is automatically allowed.
+    You attach one or more security groups to each instance.
+    Rules include protocol, port range, and source/destination (IP or SG ID).
+      Example:
+          Allow SSH (TCP port 22) from your office IP.
+          Allow HTTP (TCP port 80) from anywhere (0.0.0.0/0).
+    Important points:
+          No deny rules—only allow rules.
+          Changes to SGs apply immediately.
+          Default SG allows all traffic within instances associated with it but blocks all external access unless modified.
+-------------------------------------------------------------------------------------------------------------------------------------------------
+13. How does EC2 Auto Scaling work and when would you use it?
+      Auto Scaling automatically adds or removes EC2 instances based on demand.
+      Components:
+          1. Launch Template/Configuration: Defines instance details (AMI, instance type, etc.).
+          2. Auto Scaling Group (ASG): Manages EC2 fleet in multiple AZs.
+          3. Scaling Policies: Trigger scale-out or scale-in based on CloudWatch metrics (e.g., CPU > 70%).
+      Use Cases:
+          Traffic spikes (e.g., during sales).
+          Fault tolerance (if an instance fails, a new one is launched).
+          Cost optimization (scale in during low demand).
+      Benefits:
+          High availability
+          Elastic capacity
+          Optimized cost
+-------------------------------------------------------------------------------------------------------------------------------------------------
+14. What are placement groups in EC2 and why are they used?
+      Placement Groups define how instances are physically arranged on hardware within an AZ.
+      Types:
+          1. Cluster – Instances placed close together for low latency, high throughput. Ideal for HPC or tightly-coupled apps.
+          2. Spread – Instances placed on different hardware to reduce single point of failure. Good for critical apps.
+          3. Partition – Divides group into partitions to isolate groups of instances (used in big data like Hadoop).
+      Use Case:
+          Cluster for performance
+          Spread for fault tolerance
+          Partition for scalable, fault-isolated workloads
+-------------------------------------------------------------------------------------------------------------------------------------------------
+15. What are EC2 instance metadata and how can you access it?
+      Metadata provides information about an instance from within the instance itself (not from the AWS console).
+      Accessed via HTTP: http://169.254.169.254/latest/meta-data/
+      Includes: instance ID, AMI ID, public IP, IAM role, user-data script, region, etc.
+      Use Cases:
+        Scripts needing dynamic config (e.g., get region for app logic).
+        Getting credentials for IAM role attached to the instance.
+        Security Tip: Don’t expose metadata endpoint to users or containers. Use IMDSv2 for enhanced security.
+-------------------------------------------------------------------------------------------------------------------------------------------------
+16. What is the difference between EC2 Classic and VPC?
+      Note: EC2 Classic is now retired.
+      EC2-Classic (Legacy):
+          Instances share a single, flat network.
+          No VPC segmentation
+          Limited control over IP addressing and network config.
+      EC2 in VPC (current model):
+              Each instance launches inside a user-defined VPC.
+              Fine-grained control over subnets, route tables, security groups, and network ACLs.
+              More secure and flexible.
+-------------------------------------------------------------------------------------------------------------------------------------------------
+17. How do you connect to a Windows EC2 instance?
+      1. Launch a Windows EC2 instance with RDP enabled (port 3389).
+      2. Download the private key (.pem) used in the key pair.
+      3. Get the Administrator password by:
+        Selecting the instance → Actions → Get Windows Password → Upload .pem file.
+      4. Use Remote Desktop Protocol (RDP) tool:
+          IP: Instance’s public DNS or IP.
+          Credentials: Administrator + decrypted password
+          Ensure:
+              Port 3389 is open in the Security Group.
+              You are using the correct user (Administrator or custom).
+-------------------------------------------------------------------------------------------------------------------------------------------------
+18. How do you connect to a Linux EC2 instance?
+      1. Use SSH from terminal or PuTTY (on Windows).
+      2. Command: ssh -i /path/to/key.pem ec2-user@<public-dns>
+      3. Ensure:
+            Key file has correct permissions (chmod 400).
+            Security Group allows SSH (TCP 22).
+            Correct username (ec2-user, ubuntu, centos, etc., based on AMI).
+            Troubleshooting Tips:
+              Check firewall or IP block.
+              Ensure instance is running and reachable.
+-------------------------------------------------------------------------------------------------------------------------------------------------
+19. What are network interfaces (ENIs) in EC2?
+    An Elastic Network Interface (ENI) is a virtual network card attached to an EC2 instance.
+    Attributes:
+        Private IPs
+        Public IPs (optional)
+        Security Groups
+        MAC address
+    Use Cases:
+        High availability (move ENI to another instance).
+        Load balancing (one ENI, multiple backends).
+        Multiple NICs for multi-VPC or multi-subnet apps.
+        Primary ENI is created at launch. You can attach secondary ENIs dynamically.
+-------------------------------------------------------------------------------------------------------------------------------------------------
+20. How do you monitor EC2 instances?
+    Monitoring tools:
+        1. Amazon CloudWatch – Collects metrics (CPU, disk, network).
+        2. CloudWatch Alarms – Trigger actions (e.g., Auto Scaling, email via SNS).
+        3. EC2 Status Checks:
+        System Status: AWS infrastructure.
+        Instance Status: Inside the VM (e.g., OS boot)
+        Custom Metrics:
+        Install CloudWatch Agent to monitor disk, memory, application logs.
+Best Practices:
+      Set alarms on CPU, disk space
+      Enable detailed monitoring (1-minute intervals).
+      Use CloudWatch Logs and dashboards.
+-------------------------------------------------------------------------------------------------------------------------------------------------
+21. What is EC2 Hibernate and how is it different from Stop?
+    Hibernate and Stop both suspend an instance, but their behavior differs:
+🔸 EC2 Stop:
+    Shuts down the instance OS.
+    Clears memory (RAM) contents.
+    Keeps EBS volumes, but not the in-memory state.
+    When restarted, the instance boots from scratch like a fresh start.
+
+🔸 EC2 Hibernate:
+    Saves the contents of the RAM to the root EBS volume.
+    Preserves the in-memory state of applications.
+    On restart, the instance resumes exactly where it left off.
+    Instance RAM must be ≤150 GB, and the instance must be EBS-backed.
+  Use Cases:
+    Long-running processes (e.g., simulations) where you want to pause and resume without reconfiguring.
+    Faster recovery from interruption.
+    Suitable for dev/test environments.
+-------------------------------------------------------------------------------------------------------------------------------------------------
+22. What are Elastic IPs in EC2 and when should you use them?
+      Elastic IP (EIP) is a static, public IPv4 address that you can allocate and associate with any EC2 instance.
+      Why use it?
+          Dynamic public IPs change when an instance is stopped/started.
+          EIP remains constant, even if you stop/start or replace the instance.
+    Key Points:
+          You can remap an EIP to another instance instantly.
+          You’re charged only when it's not associated with a running instance.
+    Useful for:
+          Hosting public services (e.g., web servers).
+          Disaster recovery—easily remap EIP to a backup instance.
+--------------------------------------------------------------------------------------------------------------------------------------------------
+23. What is EC2 Instance Store and how is it different from EBS?
+    🔸 Instance Store:
+        Ephemeral (temporary) block storage physically attached to the host.
+        Data is lost when the instance stops or terminates.
+        Very fast, low latency.
+        No backup or snapshot support
+    🔸 EBS (Elastic Block Store):
+        Persistent storage across reboots, stops, and terminations.
+        Data survives instance lifecycle (unless "delete on termination" is enabled).
+        Supports snapshots, encryption, resizing, etc.
+    Use Case Comparison:
+        Use Instance Store for temporary data, caches, buffers.
+        Use EBS for databases, logs, application data that must persist.
+-------------------------------------------------------------------------------------------------------------------------------------------------
+24. How can you encrypt data on an EC2 instance?
+    You can encrypt EC2 data at three levels:
+    1. At-rest encryption (EBS volumes):
+        Use AWS-managed keys (KMS) or your own customer-managed keys (CMK).
+        Automatically encrypts data stored in EBS.
+        Also applies to snapshots and AMIs created from the volume.
+    2. In-transit encryption:
+        Use protocols like TLS/SSL to encrypt network data.
+        Can be used for apps like HTTPS, SSH, VPN, etc.
+    3. Application-level encryption:
+        Encrypt data before writing to disk using libraries like AWS Encryption SDK, KMS API.
+Best Practice: Enable EBS encryption by default using service-wide settings or launch templates.
+-------------------------------------------------------------------------------------------------------------------------------------------------
+25. What are EC2 Spot Instances and when should you use them?
+    Spot Instances allow you to bid on unused EC2 capacity at up to 90% lower cost than On-Demand.
+    Characteristics:
+        AWS can reclaim the instance with 2-minute warning when capacity is needed.
+        Instances can be interrupted at any time.
+        Ideal Use Cases:
+          Batch jobs
+          Big data analytics
+          Machine learning training
+          CI/CD workloads
+          Fault-tolerant apps
+How to use Spot wisely:
+        Use Auto Scaling Groups with Spot + On-Demand mix (Spot Fleet).
+            Use Spot Blocks for time-bound, interruption-tolerant workloads.
+-------------------------------------------------------------------------------------------------------------------------------------------------
+26. What is EC2 Fleet?
+    EC2 Fleet allows you to launch a mix of On-Demand, Spot, and Reserved Instances across different instance types and AZs using a single API call.
+Why it's useful:
+      Automatically optimizes cost and capacity.
+      Combines multiple purchase models.
+      Good for large-scale, flexible workloads.
+      Example: Request:
+        70% Spot
+        20% On-Demand
+        10% Reserved
+AWS will intelligently provision based on your allocation strategy (lowest price, diversified, capacity-optimized).
+-------------------------------------------------------------------------------------------------------------------------------------------------
+27. What is a key pair in EC2?
+    A key pair consists of:
+        Public key: Stored by AWS and injected into the instance.
+        Private key: Downloaded and kept secure by the user (.pem file).
+    Purpose:
+        Secure SSH/RDP access to EC2 instances.
+    How it works:
+        AWS injects the public key into the instance’s metadata.
+        When you connect (e.g., via SSH), you authenticate using your private key.
+    Important:
+        You can't retrieve a lost private key from AWS.
+        You must create a new key pair and attach it via instance recovery or image recreation.
+-------------------------------------------------------------------------------------------------------------------------------------------------
+28. What are EC2 status checks?
+    EC2 performs two types of status checks:
+    1. System Status Check:
+          Detects issues with the underlying AWS hardware or network.
+          Example: Power failure, loss of network, physical host issues.
+    2. Instance Status Check:
+          Detects issues inside the instance, such as:
+              OS crashes
+              Misconfigured networking
+              Software hangs
+If failed:
+System status → Wait or stop/start instance.
+Instance status → Troubleshoot instance (logs, EC2 serial console, etc.).
+You can also configure CloudWatch Alarms to act on failures.
+----------------------------------------------------------------------------------------------------------------------------------------------------
+29. What are Reserved Instances and how do they save cost?
+    Reserved Instances (RIs) are EC2 instances you commit to using for 1 or 3 years in exchange for significant discounts (up to 75%).
+    Types:
+        Standard RIs: Up to 75% off; less flexible but cheaper.
+        Convertible RIs: Up to 54% off; can change instance family/type.
+        Scheduled RIs: Reserved for specific recurring time windows.
+    Key Concepts:
+        You’re not reserving capacity (unless in a specific region).
+        Applies billing discount automatically to matching On-Demand instances.
+    Great for:
+        Predictable workloads (e.g., web servers, databases).
+        Long-term applications with steady usage.
+-------------------------------------------------------------------------------------------------------------------------------------------------
+30. What are launch templates in EC2 and how are they used?
+    Launch templates define reusable configurations for launching EC2 instances or Auto Scaling Groups.
+    Contains:
+      AMI ID
+      Instance type
+      Key pair
+      Network settings (VPC, subnet)
+      User data scripts
+      Tags
+      IAM role
+    Benefits:
+        Reduces human error.
+        Consistent environment across teams.
+        Supports versioning (track changes over time).
+        Required for newer services like EC2 Spot Fleets, Auto Scaling, and EC2 Fleet.
+        Launch Templates vs Launch Configurations:
+        Launch Configs are legacy and don’t support all features (e.g., T2/T3 credit specs, multiple instance types).
+        Launch Templates are more modern and preferred.
+-------------------------------------------------------------------------------------------------------------------------------------------------
+31. What is a Placement Group in EC2? What are the types and use cases?
+    A Placement Group is a logical grouping of instances within a single AZ or across AZs to control how your instances are physically
+    placed on AWS infrastructure.
+  Types of Placement Groups:
+      🔸 1. Cluster Placement Group
+        Instances are placed close together in a single AZ.
+        Offers low latency and high throughput.
+        Best for:
+            HPC (High Performance Computing)
+            Distributed applications (e.g., Cassandra, Hadoop)
+      🔸 2. Spread Placement Group
+        Instances are spread across distinct underlying hardware.
+        Minimizes risk from hardware failure.
+        Limited to 7 instances per AZ per group.
+      Best for:
+        Critical applications that must not share hardware (e.g., DB, core services).
+🔸 3. Partition Placement Group
+        Divides instances into logical partitions (max 7).
+        Each partition uses isolated racks (network + power).
+        Used in large-scale, fault-tolerant systems like HDFS, Kafka, or Cassandra.
+---
+Important Notes:
+You must launch instances into the group from the start.
+You can’t change the placement type of an existing group.
+Cluster Placement Group can fail if not enough capacity is available.
+-------------------------------------------------------------------------------------------------------------------------------------------------
+32. How do EC2 instances communicate across regions and AZs?
+  🔹 Within a Region (across AZs):
+      All AZs in a region are connected with low-latency, high-bandwidth links.
+      You can use private IPs across AZs within the same VPC.
+      Traffic is free across AZs only for private IP-to-private IP in the same region.
+🔹 Across Regions:
+      EC2 instances communicate using public IPs or VPC peering, Transit Gateway, or VPN/Direct Connect.
+      Latency is higher.
+      Data transfer charges apply (e.g., $0.02–$0.09 per GB depending on region).
+Tips:
+    Use VPC Peering or Transit Gateway for private IP connectivity across VPCs/regions.
+    Use Global Accelerator or CloudFront for optimized cross-region access.
+-------------------------------------------------------------------------------------------------------------------------------------------------
+33. How does EC2 Auto Recovery work and how is it configured?
+    EC2 Auto Recovery allows you to automatically recover an instance when the underlying hardware or hypervisor fails.
+    Key Points:
+        Recovery action stops the instance on faulty hardware and restarts it on new hardware.
+        The instance ID and data remain the same.
+        Only certain instance types support this (e.g., Nitro-based instances).
+    How to Configure:
+        Create a CloudWatch Alarm on StatusCheckFailed_System.
+        Set alarm action to "Recover this instance".
+        Metric: StatusCheckFailed_System
+        Alarm action: Recover
+    Use Case:
+        Mission-critical applications (e.g., production web server, database node) that require zero downtime from hardware failures.
+-------------------------------------------------------------------------------------------------------------------------------------------------
+34. How do you troubleshoot SSH connection issues to an EC2 instance?
+    Steps to troubleshoot:
+        1. Check Security Group Rules:
+            Ensure port 22 is open to your IP or CIDR.
+            Verify there's no implicit deny.
+        2. Check NACL Rules:
+            Ensure both inbound/outbound rules allow SSH (port 22) and ephemeral ports.
+        3. Verify Private Key:
+            Use the correct .pem file.
+            Set correct permissions: chmod 400 mykey.pem.
+        4. Public IP or Elastic IP:
+            Confirm the instance has a public/elastic IP.
+            Use correct IP in SSH command.
+        5. Check Instance State:
+            Must be running and reachable.
+        6. Use EC2 Serial Console (Linux):
+            For Nitro-based EC2, enables OS-level access even if network is misconfigured.
+        7. Review System Logs:
+            Via EC2 → Actions → Instance Settings → Get System Log.
+-------------------------------------------------------------------------------------------------------------------------------------------------
+35. What is the EC2 Serial Console and when would you use it?
+    The EC2 Serial Console provides low-level access to the instance console output (stdin/stdout), just like you’d get with a physical server monitor/keyboard.
+    Benefits:
+      Helps in troubleshooting boot-level or networking issues.
+      Useful when SSH is broken (e.g., due to wrong firewall rules or OS misconfiguration).
+    Requirements:
+      Nitro-based instance.
+      IAM permission: ec2-instance-connect:SendSerialConsoleSSHPublicKey
+      Serial console must be enabled at the account level.
+    Example Usage:
+      Forgot to allow SSH? Fix networking config through the serial console.
+      Fix /etc/fstab or boot loop errors without detaching the root volume.
+-------------------------------------------------------------------------------------------------------------------------------------------------
+36. What are EC2 Host Tenancy options?
+    EC2 instances support different tenancy models:
+    🔸 1. Shared Tenancy (default):
+        Instances run on shared hardware.
+        Cost-effective.
+        Best for most workloads
+    🔸 2. Dedicated Instance:
+        Run on hardware dedicated to a single customer.
+        Still share hardware across your own instances.
+        Slightly higher cost than shared tenancy.
+    🔸 3. Dedicated Host:
+      Gives you a physical server reserved for your use.
+      Required for:
+      Software licensing compliance (e.g., SQL Server, Oracle).
+      Visibility into sockets, cores, and host IDs.
+    Use Cases:
+      Compliance requirements (e.g., finance, healthcare).
+      BYOL (Bring Your Own License) scenarios.
+-------------------------------------------------------------------------------------------------------------------------------------------------
+37. How does Elastic Load Balancer (ELB) integrate with EC2?
+    An ELB distributes incoming traffic across multiple EC2 instances to improve fault tolerance and availability.
+    ELB Types:
+        Application Load Balancer (ALB): HTTP/HTTPS (Layer 7)
+        Network Load Balancer (NLB): TCP/UDP (Layer 4)
+        Gateway Load Balancer: Used for 3rd-party appliances
+  EC2 Integration:
+      ELB is registered with EC2 instances or target groups.
+      Performs health checks—only routes to healthy instances.
+      Supports Auto Scaling integration to register/deregister instances dynamically.
+  Benefits:
+      Zero-downtime deployments using weighted target groups.
+      SSL offloading and termination.
+      Horizontal scaling of EC2 services.
+-------------------------------------------------------------------------------------------------------------------------------------------------
+39. How do you configure EC2 Auto Scaling based on CPU and custom metrics?
+    Auto Scaling allows you to automatically increase or decrease EC2 instances based on metrics.
+    Steps to Configure:
+    1. Create Launch Template:
+        Define instance config, key pair, security group.
+    2. Create Auto Scaling Group (ASG):
+        Define min, max, and desired capacity.
+        Attach to VPC, subnets, ELB (optional).
+    3. Define Scaling Policies:
+        Target Tracking: e.g., maintain 50% CPU.
+        Step Scaling: scale by X instances when threshold is crossed.
+        Scheduled Scaling: grow/shrink based on time (e.g., business hours).
+    4. Use CloudWatch Custom Metrics (optional):
+        Push app-specific metrics (e.g., queue length).
+        Create alarm → ASG scaling policy.
+-------------------------------------------------------------------------------------------------------------------------------------------------
+40. How would you architect a highly available EC2-based web application?
+    A highly available web app on EC2 should be resilient across multiple Availability Zones, Auto Scaling, and use managed AWS services where possible.
+    Architecture:
+        1. Network:
+            VPC with public and private subnets in 2+ AZs.
+            Use NAT Gateway for outbound internet for private instances.
+        2. Compute:
+            EC2 instances in Auto Scaling Group across multiple AZs.
+            Launch Template for standardization.
+            Placement Groups (optional).
+        3. Load Balancer:
+            Use ALB in front of instances.
+            Route traffic based on URL paths (microservices architecture).
+        4. Storage:
+            Use EBS for instance storage.
+            S3 for static assets (e.g., images, CSS, JS).
+        5. Database:
+            Use RDS with Multi-AZ for HA.
+            Or Aurora Serverless for autoscaling.
+        6. Security:
+            IAM roles for EC2.
+            Security Groups and NACLs for fine-grained access.
+        7. Monitoring:
+            CloudWatch metrics, alarms, logs.
+            Enable auto-recovery and CloudTrail auditing.
+-------------------------------------------------------------------------------------------------------------------------------------------------
+41. What is the difference between rebooting, stopping, and terminating an EC2 instance?
+      Action Description Data Loss Risk Billing Impact
+      Reboot Restarts the OS without changing instance ID, IP, or volume ❌ No 💰 Continues
+Stop Powers off the instance (like a shutdown), retains instance ID & EBS ❌ No (EBS only) 💰 EBS only is charged
+Terminate Deletes the instance and attached non-persistent EBS volumes ✅ Yes (if not retained) 💰 Stops all billing
+Reboot is used for software updates or troubleshooting without IP change (unless using auto-assigned public IP).
+Stop is good for temporary shutdown (e.g., night hours); saves cost but keeps data.
+Terminate is final—used when you no longer need the instance.
+> 📌 Note: Instance store (ephemeral) volumes are lost on stop or terminate.
+-------------------------------------------------------------------------------------------------------------------------------------------------
+42. What is an Elastic Network Interface (ENI) and when would you use multiple ENIs?
+      An Elastic Network Interface (ENI) is a virtual NIC that can be attached to an EC2 instance.
+Features:
+      Each ENI has its own private IP, MAC, security groups, and optionally public IP.
+      You can attach/detach ENIs between instances (only for secondary ENIs).
+      Can have multiple ENIs per instance (based on instance type).
+Use Cases for Multiple ENIs:
+  Multi-homed architecture (e.g., routing between different subnets or networks).
+    High availability failover: move ENI to standby instance in failover event.
+    Network appliances: firewalls, load balancers needing ingress and egress interfaces.
+> 📌 Only one primary ENI can be auto-attached at boot. Secondary ENIs must be managed manually or via automation.
+-------------------------------------------------------------------------------------------------------------------------------------------------
+43. How do you handle data backup and recovery in EC2?
+Backup Options:
+    1. Amazon Machine Image (AMI):
+        Snapshot + metadata (OS + configuration).
+        Recreate identical EC2 instance.
+    2. EBS Snapshots:
+        Block-level incremental backups.
+        Can be automated via Data Lifecycle Manager (DLM).
+    3. AWS Backup Service:
+        Centralized backup for EC2, EFS, RDS, DynamoDB, etc.
+        Define backup plans and retention.
+    4. File-Level Backup:
+        Use agents/tools like AWS DataSync, rsync, or third-party (e.g., Veeam, Bacula).
+-------------------------------------------------------------------------------------------------------------------------------------------------
+Recovery Strategy:
+      Use EBS snapshots to restore volumes.
+      Use AMI to spin up identical replacement instance.
+      For automated recovery, create CloudWatch alarms + Lambda function to auto-recover.
+> Best Practice: Always test backup recovery processes (DR drills).
+-------------------------------------------------------------------------------------------------------------------------------------------------
+44. How would you ensure an EC2 instance is secure?
+1. Use IAM Roles (not keys):
+    Assign least-privilege IAM roles to EC2.
+    Avoid hardcoding access keys
+2. Security Groups:
+      Deny all by default.
+      Open only necessary ports/IPs (e.g., SSH from office IP only).
+3. Use EC2 Key Pairs:
+      Use .pem files for SSH.
+      Rotate keys regularly.
+4. Patch the OS & software:
+      Automate updates with SSM or cron.
+5. Encrypt Data:
+      EBS volumes → KMS encryption.
+      File-level encryption for sensitive files.
+6. Enable Logging & Monitoring:
+      CloudWatch Agent for logs/metrics.
+      Enable CloudTrail for audit logging.
+7. Restrict outbound internet access:
+      Use NAT + VPC endpoints to control traffic.
+      Enable egress rules in SG/NACLs carefully.
+8. Disable password login in SSH (use only key-based auth).
+-------------------------------------------------------------------------------------------------------------------------------------------------
+46. How do EC2 Spot Instances work and when should you use them?
+Spot Instances let you use spare EC2 capacity at up to 90% discount.
+Key Concepts:
+      Priced dynamically.
+      AWS can reclaim the instance with 2-minute notice.
+Spot Lifecycle:
+      Request → Launch → Run → Interrupted (if needed) → Terminate
+Use Cases:
+      Stateless apps.
+      Batch jobs (e.g., encoding, ML training).
+      Container workloads (ECS, EKS with spot node groups).
+      CI/CD runners.
+Interruption Handling:
+      Use EC2 Spot Fleet with On-Demand fallbacks.
+      Monitor SpotInstanceInterruptionNotice from metadata endpoint
+> ⚠️ Not recommended for stateful or production DB workloads unless managed carefully.
+-------------------------------------------------------------------------------------------------------------------------------------------------
+47. What is EC2 Instance Refresh in Auto Scaling and how does it help?
+Instance Refresh allows rolling updates to instances in an ASG without full replacement.
+Why use it?
+      Update launch templates (AMI, userdata, instance type).
+      Replace unhealthy or out-of-date instances automatically.
+Features:
+      Rolling replacements.
+      Option to pause, skip failed replacements, set minimum healthy percentage.
+      Can be triggered manually or with CloudWatch alarms.
+> 📌 Safer alternative to terminating all and re-creating—supports blue/green-like update pattern.
+------------------------------------------------------------------------------------------------------------------------------------------------
+48. How can you reduce EC2 cost in a large environment?
+1. Right-size Instances:
+      Use Compute Optimizer or CloudWatch metrics.
+2. Use Auto Scaling:
+      Scale in/out based on load to avoid overprovisioning.
+3. Use Spot Instances:
+      Replace non-critical workloads with Spot.
+4. Use Savings Plans or Reserved Instances:
+      For predictable workloads (1-3 year commitment).
+5. Schedule Stop/Start:
+      Dev/stage instances can shut down overnight/weekends.
+6. Use Graviton (ARM) instances:
+      Up to 40% better price-performance.
+7. Delete unused EBS volumes, snapshots, and Elastic IPs
+8. Use consolidated billing for volume discounts.
+-------------------------------------------------------------------------------------------------------------------------------------------------
+49. What are some best practices when launching EC2 in production?
+✅ Use Latest AMIs:
+    Keep OS updated and hardened.
+✅ Use IAM Roles:
+    Attach roles instead of embedding credentials.
+✅ Enable Detailed Monitoring:
+    1-minute granularity for better visibility.
+✅ Auto Scaling Groups:
+    Ensures HA and dynamic scaling.
+✅ Elastic Load Balancer:
+    Distribute traffic and improve fault tolerance.
+✅ CloudWatch Alarms:
+    Monitor CPU, memory, disk, and custom app metrics.
+✅ Backups:
+    Enable regular EBS snapshots and AMI rotations.
+✅ Tagging:
+    Use for cost tracking, automation, access control.
+✅ Secure SSH Access:
+    Use bastion hosts or Session Manager via SSM.
+✅ Placement Groups (if needed):
+    For latency-sensitive or fault-isolated apps.
+-------------------------------------------------------------------------------------------------------------------------------------------------
+50. How does EC2 integrate with other AWS services in real-world architectures?
+EC2 forms the compute backbone for many AWS solutions. It integrates with:
+🔹 Auto Scaling Group (ASG):
+      Launch/terminate EC2s based on metrics.
+🔹 Elastic Load Balancer (ELB):
+      Routes traffic to EC2s based on health checks.
+🔹 RDS, DynamoDB, ElastiCache:
+      Backend services for EC2-hosted apps.
+🔹 S3:
+      For static content, backup, file transfer.
+🔹 CloudWatch:
+      Monitoring, alarms, and logs from EC2.
+🔹 IAM:
+      Manage EC2 access to other services securely.
+🔹 EFS / FSx:
+      Shared storage between EC2s.
+🔹 SSM (AWS Systems Manager):
+      Secure remote access, patch management, and inventory.
+🔹 VPC + Security:
+      Network control, flow logs, traffic routing.
+Example:
+      User → Route 53 → ALB → EC2 ASG (Nginx) → RDS (Postgres)
+                   ↓             ↓
+               CloudWatch     SSM Patch Manager
+
+
