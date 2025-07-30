@@ -1804,4 +1804,106 @@ Enable audit logging plugins	Track user actions
 Authentication verifies who the user is, using methods like Jenkins internal DB, LDAP, GitHub OAuth, etc.
 Authorization controls what the user can do, using strategies like Matrix-based or Role-Based Strategy Plugin.
 Best practices include using HTTPS, disabling anonymous access, and integrating with enterprise identity providers.
+-------------------------------------------------------------------------------------------------------------------------------------------------
+Securing Jenkins (Server-Level)
+1. Enable Global Security
+- Steps:
+  - Go to Manage Jenkins → Configure Global Security.
+  - Check “Enable Security”.
+  - Choose a Security Realm (e.g., Jenkins own user database, LDAP, or SSO).
+  - Choose an Authorization Strategy (e.g., Matrix-based or Role-based).
+- Why: Controls who can access Jenkins and what they can do.
 
+2. Disable Anonymous Access
+- Steps:
+  - In the Authorization section, ensure anonymous users have no permissions.
+- Why: Prevents unauthorized access to Jenkins UI and jobs.
+
+3. Use HTTPS
+- Steps:
+  - Generate SSL certificates using OpenSSL.
+  - Configure Jenkins to use HTTPS via reverse proxy (NGINX/Apache) or directly in jenkins.service file.
+- Why: Encrypts communication between users and Jenkins.
+
+4. Run Jenkins as a Non-Root User
+- Steps:
+  - Create a dedicated jenkins user.
+  - Set file and process permissions accordingly.
+- Why: Limits damage if Jenkins is compromised.
+
+5. Restrict Network Access
+- Steps:
+  - Use firewalls or cloud security groups to allow access only from trusted IPs.
+- Why: Reduces exposure to external threats.
+
+6. Disable Executors on Controller Node
+- Steps:
+  - Go to Manage Jenkins → Configure System.
+  - Set “# of executors” on master to 0.
+- Why: Prevents builds from running on the controller, improving isolation.
+
+7. Audit Logging
+- Steps:
+  - Install the Audit Trail Plugin.
+  - Configure it to log user actions and changes.
+- Why: Tracks suspicious activity and supports compliance.
+
+8. Update Jenkins & Plugins Regularly
+- Steps:
+  - Use the Jenkins Update Center.
+  - Monitor plugin changelogs for security patches.
+- Why: Fixes known vulnerabilities.
+
+-------------------------------------------------------------------------------------------------------------------------------------------------
+🛡️ Securing Jenkins Pipelines (Job-Level)
+1. Use Groovy Sandbox
+- Steps:
+  - In pipeline jobs, enable “Use Groovy Sandbox”.
+- Why: Prevents execution of unsafe scripts.
+
+2. Use Script Approval
+- Steps:
+  - Go to Manage Jenkins → In-process Script Approval.
+  - Review and approve only trusted scripts.
+- Why: Controls custom code execution.
+
+3. Store Jenkinsfiles in Git
+- Steps:
+  - Use SCM integration (GitHub, GitLab).
+  - Enforce pull requests and code reviews.
+- Why: Ensures version control and peer validation.
+
+4. Secure Credentials
+- Steps:
+  - Use Credentials Plugin.
+  - Store secrets in Jenkins or integrate with Vault/AWS Secrets Manager.
+  - Use withCredentials block in pipelines.
+- Why: Prevents hardcoding secrets and limits exposure.
+
+5. Restrict Credential Scope
+- Steps:
+  - Assign credentials to specific folders or jobs.
+- Why: Limits access to sensitive data.
+
+6. Scan Code & Dependencies
+- Steps:
+  - Integrate tools like SonarQube, OWASP Dependency-Check, or Trivy.
+  - Add security stages in Jenkinsfile.
+- Why: Detects vulnerabilities early in the pipeline.
+
+7. Use Minimal, Signed Docker Images
+- Steps:
+  - Use verified base images.
+  - Scan images with Trivy or Anchore.
+- Why: Reduces risk from compromised containers.
+
+8. Implement Security Gates
+- Steps:
+  - Add logic in Jenkinsfile to fail builds if vulnerabilities are found.
+  - Example:
+    groovy
+    if (readFile('report.html').contains('High')) {
+      error "Security issues detected. Aborting!"
+    }  
+- Why: Prevents insecure code from reaching production.
+---
