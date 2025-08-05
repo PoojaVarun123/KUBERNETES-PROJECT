@@ -1,0 +1,2798 @@
+================================================================================================================================================
+1) Set up EBS CSI Driver on Kubernetes using Helm
+================================================================================================================================================
+The Amazon EBS CSI driver allows your Kubernetes workloads to use EBS volumes as persistent storage.
+🛠️ Steps:
+Step 1: Add the EBS CSI driver Helm repo
+    helm repo add aws-ebs-csi-driver https://kubernetes-sigs.github.io/aws-ebs-csi-driver
+    helm repo update
+----------------------------------------------------------------------------------------------------------------------------------------------------------
+Step 2: Install the driver using Helm (with IRSA if on EKS)
+  helm upgrade --install aws-ebs-csi-driver \
+  aws-ebs-csi-driver/aws-ebs-csi-driver \
+  --namespace kube-system \
+  --set controller.serviceAccount.create=false \
+  --set controller.serviceAccount.name=ebs-csi-controller-sa
+If using IRSA, make sure the IAM Role has the following policy attached:
+    AWS EBS CSI IAM policy
+---------------------------------------------------------------------------------------------------------------------------------------------------------
+Step 3: Create a StorageClass
+# ebs-sc.yaml
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: ebs-sc
+provisioner: ebs.csi.aws.com
+parameters:
+  type: gp3
+reclaimPolicy: Delete
+volumeBindingMode: WaitForFirstConsumer
+
+kubectl apply -f ebs-sc.yaml
+---------------------------------------------------------------------------------------------------------------------------------------------------------
+Step 4: Use the StorageClass in a Deployment or StatefulSet
+# pvc.yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ebs-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: ebs-sc
+  resources:
+    requests:
+      storage: 5Gi
+________________________________________
+✅ 2) Set up EFS CSI Driver on Kubernetes using Helm
+EFS provides scalable file storage that can be shared across pods.
+---------------------------------------------------------------------------------------------------------------------------------------------------------
+🛠️ Steps:
+Step 1: Add the EFS Helm repo
+    helm repo add aws-efs-csi-driver https://kubernetes-sigs.github.io/aws-efs-csi-driver/
+    helm repo update
+---------------------------------------------------------------------------------------------------------------------------------------------------------
+Step 2: Install the EFS CSI Driver
+    helm upgrade --install aws-efs-csi-driver \
+  aws-efs-csi-driver/aws-efs-csi-driver \
+  --namespace kube-system
+---------------------------------------------------------------------------------------------------------------------------------------------------------
+Step 3: Create an EFS File System on AWS
+•	Create via AWS Console or CLI.
+•	Note the FileSystemId.
+---------------------------------------------------------------------------------------------------------------------------------------------------------
+Step 4: Create EFS Access Point (optional but recommended)
+---------------------------------------------------------------------------------------------------------------------------------------------------------
+Step 5: Create a StorageClass and PersistentVolume
+# efs-pv.yaml
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: efs-pv
+spec:
+  capacity:
+    storage: 5Gi
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: efs-sc
+  csi:
+    driver: efs.csi.aws.com
+    volumeHandle: <file-system-id>
+
+# efs-sc.yaml
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: efs-sc
+provisioner: efs.csi.aws.com
+yaml
+CopyEdit
+# pvc.yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: efs-pvc
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: efs-sc
+  resources:
+    requests:
+      storage: 5Gi
+________________________________________
+✅ 3) Set up AWS CNI Plugin (VPC CNI) using Helm
+The AWS CNI plugin is the default networking plugin for EKS.
+---------------------------------------------------------------------------------------------------------------------------------------------------------
+🛠️ Steps:
+Step 1: Add the Amazon VPC CNI Helm repo
+    helm repo add eks https://aws.github.io/eks-charts
+    helm repo update
+---------------------------------------------------------------------------------------------------------------------------------------------------------
+Step 2: Install the CNI plugin
+    helm upgrade --install aws-vpc-cni \
+  eks/aws-vpc-cni \
+  --namespace kube-system \
+  --set init.enabled=true
+---------------------------------------------------------------------------------------------------------------------------------------------------------
+Step 3: IAM Permissions (if using IRSA)
+    Attach the AmazonEKS_CNI_Policy managed policy to the node IAM role.
+________________________________________
+✅ 4) Set up Calico Network Plugin on Kubernetes using Helm
+Calico provides advanced network policies and optionally replaces the default CNI plugin.
+🛠️ Steps:
+Calico is often used with self-managed Kubernetes, not EKS unless you disable AWS CNI.
+---------------------------------------------------------------------------------------------------------------------------------------------------------
+Step 1: Add the Project Calico Helm repo
+    helm repo add projectcalico https://projectcalico.docs.tigera.io/charts
+    helm repo update
+---------------------------------------------------------------------------------------------------------------------------------------------------------
+Step 2: Install Calico using Helm
+helm install calico projectcalico/tigera-operator \
+  --version v3.27.0 \
+  --namespace tigera-operator \
+  --create-namespace
+---------------------------------------------------------------------------------------------------------------------------------------------------------
+Step 3: Wait for Calico to be ready
+    kubectl get pods -n calico-system
+You can also define custom network policies using Calico after it's deployed.
+________________________________________
+✅ Summary Table
+| Component      | Helm Chart Repo                                        | Helm Install Command Example          |
+| -------------- | ------------------------------------------------------ | ------------------------------------- |
+| EBS CSI Driver | `https://kubernetes-sigs.github.io/aws-ebs-csi-driver` | `helm install aws-ebs-csi-driver ...` |
+| EFS CSI Driver | `https://kubernetes-sigs.github.io/aws-efs-csi-driver` | `helm install aws-efs-csi-driver ...` |
+| AWS CNI Plugin | `https://aws.github.io/eks-charts`                     | `helm install aws-vpc-cni ...`        |
+| Calico Network | `https://projectcalico.docs.tigera.io/charts`          | `helm install calico ...`             |
+________________________________________
+5) How to Set Up Istio Service Mesh using Helm
+🛠️ Steps:
+Step 1: Add Istio Helm repo
+    helm repo add istio https://istio-release.storage.googleapis.com/charts
+    helm repo update
+---------------------------------------------------------------------------------------------------------------------------------------------------------
+Step 2: Create the namespace
+    kubectl create namespace istio-system
+---------------------------------------------------------------------------------------------------------------------------------------------------------
+Step 3: Install Istio base components
+    helm install istio-base istio/base -n istio-system
+---------------------------------------------------------------------------------------------------------------------------------------------------------
+Step 4: Install Istio control plane (istiod)
+    helm install istiod istio/istiod -n istio-system --wait
+---------------------------------------------------------------------------------------------------------------------------------------------------------
+Step 5: (Optional) Install Istio Ingress Gateway
+    helm install istio-ingress istio/gateway -n istio-system
+________________________________________
+✅ 6) How to Set Up Horizontal Pod Autoscaler (HPA)
+🛠️ Prerequisites:
+•	Metrics Server must be installed:
+kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+---------------------------------------------------------------------------------------------------------------------------------------------------------
+🛠️ Example HPA YAML:
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: myapp-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: myapp
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 50
+________________________________________
+✅ 7) How to Set Up Cluster Autoscaler on AWS EKS
+🛠️ Prerequisites:
+•	Enable IAM Role with Cluster Autoscaler permissions using IRSA.
+---------------------------------------------------------------------------------------------------------------------------------------------------------
+🛠️ Step-by-step (with Helm):
+Step 1: Add Helm repo
+    helm repo add autoscaler https://kubernetes.github.io/autoscaler
+    helm repo update
+---------------------------------------------------------------------------------------------------------------------------------------------------------
+Step 2: Create IAM role with Cluster Autoscaler policy (via IRSA).
+---------------------------------------------------------------------------------------------------------------------------------------------------------
+Step 3: Install Cluster Autoscaler via Helm
+  helm upgrade --install cluster-autoscaler autoscaler/cluster-autoscaler \
+  --namespace kube-system \
+  --set autoDiscovery.clusterName=<your-cluster-name> \
+  --set awsRegion=<region> \
+  --set rbac.serviceAccount.name=cluster-autoscaler \
+  --set rbac.serviceAccount.create=false \
+  --set cloudProvider=aws \
+  --set extraArgs.balance-similar-node-groups=true
+You can also pass --set extraArgs.expander=least-waste for better node group decisions.
+________________________________________
+✅ 8) How to Set Up Vertical Pod Autoscaler (VPA)
+🛠️ Install VPA using YAML:
+    kubectl apply -f https://github.com/kubernetes/autoscaler/releases/latest/download/vertical-pod-autoscaler.yaml
+---------------------------------------------------------------------------------------------------------------------------------------------------------
+🛠️ Example VPA YAML:
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: myapp-vpa
+spec:
+  targetRef:
+    apiVersion: "apps/v1"
+    kind:       Deployment
+    name:       myapp
+  updatePolicy:
+    updateMode: "Auto"
+________________________________________
+✅ 9) How to Integrate AWS Secrets Manager into Kubernetes
+🛠️ Use Secrets Store CSI Driver + AWS Provider
+---------------------------------------------------------------------------------------------------------------------------------------------------------
+Step 1: Install Secrets Store CSI Driver (Helm)
+      helm repo add secrets-store-csi-driver https://kubernetes-sigs.github.io/secrets-store-csi-driver/charts
+      helm repo update
+    helm install csi-secrets-store secrets-store-csi-driver/secrets-store-csi-driver \
+  --namespace kube-system
+---------------------------------------------------------------------------------------------------------------------------------------------------------
+Step 2: Install AWS provider
+    kubectl apply -f https://raw.githubusercontent.com/aws/secrets-store-csi-driver-provider-aws/main/deployment/aws-provider-installer.yaml
+---------------------------------------------------------------------------------------------------------------------------------------------------------
+Step 3: Create SecretProviderClass
+apiVersion: secrets-store.csi.x-k8s.io/v1
+kind: SecretProviderClass
+metadata:
+  name: aws-secrets
+spec:
+  provider: aws
+  parameters:
+    objects: |
+      - objectName: "my-secret-name"
+        objectType: "secretsmanager"
+---------------------------------------------------------------------------------------------------------------------------------------------------------
+Step 4: Use in Pod
+volumeMounts:
+- name: secrets-store-inline
+  mountPath: "/mnt/secrets-store"
+
+volumes:
+- name: secrets-store-inline
+  csi:
+    driver: secrets-store.csi.k8s.io
+    readOnly: true
+    volumeAttributes:
+      secretProviderClass: "aws-secrets"
+________________________________________
+✅ 10) How to Set Up AWS ALB Ingress Controller using Helm
+🛠️ Steps:
+Step 1: Add Helm repo
+    helm repo add eks https://aws.github.io/eks-charts
+    helm repo update
+---------------------------------------------------------------------------------------------------------------------------------------------------------
+Step 2: Create IAM role for ALB controller (IRSA)
+---------------------------------------------------------------------------------------------------------------------------------------------------------
+Step 3: Install ALB Controller
+helm install aws-load-balancer-controller eks/aws-load-balancer-controller \
+  -n kube-system \
+  --set clusterName=<your-cluster-name> \
+  --set serviceAccount.create=false \
+  --set serviceAccount.name=aws-load-balancer-controller \
+  --set region=<aws-region> \
+  --set vpcId=<vpc-id> \
+  --set image.tag="v2.7.1"
+---------------------------------------------------------------------------------------------------------------------------------------------------------
+Step 4: Annotate Ingress Resource
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-ingress
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+spec:
+  rules:
+  - host: myapp.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: my-service
+            port:
+              number: 80
+________________________________________
+✅ 11) How to Upgrade Kubernetes Worker Nodes on EKS
+🛠️ Steps (Managed Node Group):
+1.	Check current version:
+    aws eks describe-nodegroup --cluster-name <cluster> --nodegroup-name <ng-name>
+---------------------------------------------------------------------------------------------------------------------------------------------------------
+2.	Upgrade Node Group:
+aws eks update-nodegroup-version \
+  --cluster-name <cluster-name> \
+  --nodegroup-name <nodegroup-name> \
+  --kubernetes-version <new-version>
+---------------------------------------------------------------------------------------------------------------------------------------------------------
+3.	Monitor upgrade status:
+    aws eks describe-nodegroup ...
+---------------------------------------------------------------------------------------------------------------------------------------------------------
+🛠️ Steps (Self-managed nodes with ASG):
+1.	Launch new node group with updated AMI.
+2.	Drain old nodes:
+    kubectl drain <node> --ignore-daemonsets --delete-local-data
+3.	Terminate old ASG instances.
+4.	Confirm pods are running on new nodes.
+________________________________________
+________________________________________
+🔧 List of Components We’ll Cover:
+1.	EBS CSI Driver
+2.	EFS CSI Driver
+3.	AWS CNI (VPC CNI)
+4.	Calico
+5.	Istio
+6.	HPA (Horizontal Pod Autoscaler)
+7.	Cluster Autoscaler
+8.	Vertical Pod Autoscaler
+9.	AWS Secrets Manager CSI Integration
+10.	ALB Ingress Controller
+11.	Node Upgrade (EKS managed & self-managed)
+________________________________________
+________________________________________
+✅ 1. Amazon EBS CSI Driver Setup
+________________________________________
+🧩 A. YAML Manifests
+1. StorageClass YAML (ebs-sc.yaml)
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: ebs-sc
+provisioner: ebs.csi.aws.com
+volumeBindingMode: WaitForFirstConsumer
+reclaimPolicy: Delete
+parameters:
+  type: gp3
+---------------------------------------------------------------------------------------------------------------------------------------------------------
+2. PersistentVolumeClaim YAML (ebs-pvc.yaml)
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ebs-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: ebs-sc
+  resources:
+    requests:
+      storage: 5Gi
+---------------------------------------------------------------------------------------------------------------------------------------------------------
+3. Sample Pod using EBS PVC (ebs-pod.yaml)
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ebs-demo-pod
+spec:
+  containers:
+  - name: app
+    image: nginx
+    volumeMounts:
+    - mountPath: "/data"
+      name: ebs-volume
+  volumes:
+  - name: ebs-volume
+    persistentVolumeClaim:
+      claimName: ebs-pvc
+________________________________________
+📦 B. Helm values.yaml (For EBS CSI driver)
+ebs-csi-values.yaml
+controller:
+  serviceAccount:
+    create: false
+    name: ebs-csi-controller-sa
+node:
+  tolerations:
+    - key: "node-role.kubernetes.io/master"
+      operator: "Exists"
+      effect: "NoSchedule"
+storageClasses:
+  enabled: false
+You need to create the IAM Role + ServiceAccount separately if you're using IRSA.
+________________________________________
+⚙️ C. Terraform Code
+1. IAM Policy for EBS CSI (required for IRSA)
+resource "aws_iam_policy" "ebs_csi_policy" {
+  name = "AmazonEBSCSIDriverPolicy"
+  policy = file("ebs-csi-iam-policy.json")
+}
+---------------------------------------------------------------------------------------------------------------------------------------------------------
+2. IAM Role for ServiceAccount (IRSA)
+resource "aws_iam_role" "ebs_csi_role" {
+  name = "eks-ebs-csi-role"
+  assume_role_policy = data.aws_iam_policy_document.assume_role.json
+}
+
+data "aws_iam_policy_document" "assume_role" {
+  statement {
+    actions = ["sts:AssumeRoleWithWebIdentity"]
+    principals {
+      type        = "Federated"
+      identifiers = [aws_iam_openid_connect_provider.oidc.arn]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "${replace(aws_iam_openid_connect_provider.oidc.url, "https://", "")}:sub"
+      values   = ["system:serviceaccount:kube-system:ebs-csi-controller-sa"]
+    }
+  }
+}
+---------------------------------------------------------------------------------------------------------------------------------------------------------
+3. Associate IAM Policy
+resource "aws_iam_role_policy_attachment" "ebs_policy_attach" {
+  policy_arn = aws_iam_policy.ebs_csi_policy.arn
+  role       = aws_iam_role.ebs_csi_role.name
+}
+---------------------------------------------------------------------------------------------------------------------------------------------------------
+4. Create the Kubernetes Service Account
+resource "kubernetes_service_account" "ebs_sa" {
+  metadata {
+    name      = "ebs-csi-controller-sa"
+    namespace = "kube-system"
+    annotations = {
+      "eks.amazonaws.com/role-arn" = aws_iam_role.ebs_csi_role.arn
+    }
+  }
+}
+________________________________________
+🧪 Deployment Steps:
+1. Create IRSA role and Kubernetes SA via Terraform
+    terraform init && terraform apply
+2. Install EBS CSI driver using Helm
+    helm repo add aws-ebs-csi-driver https://kubernetes-sigs.github.io/aws-ebs-csi-driver
+    helm repo update
+    helm install aws-ebs-csi-driver aws-ebs-csi-driver/aws-ebs-csi-driver \
+  -n kube-system \
+  -f ebs-csi-values.yaml
+3. Apply YAML resources
+kubectl apply -f ebs-sc.yaml
+kubectl apply -f ebs-pvc.yaml
+kubectl apply -f ebs-pod.yaml
+________________________________________
+✅ 2. Amazon EFS CSI Driver Setup
+________________________________________
+🧩 A. YAML Manifests
+1. StorageClass YAML (efs-sc.yaml)
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: efs-sc
+provisioner: efs.csi.aws.com
+reclaimPolicy: Retain
+volumeBindingMode: WaitForFirstConsumer
+
+2. PersistentVolume YAML (efs-pv.yaml)
+Replace <file-system-id> with your actual EFS File System ID.
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: efs-pv
+spec:
+  capacity:
+    storage: 5Gi
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: efs-sc
+  csi:
+    driver: efs.csi.aws.com
+    volumeHandle: fs-<file-system-id>
+
+3. PersistentVolumeClaim YAML (efs-pvc.yaml)
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: efs-pvc
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: efs-sc
+  resources:
+    requests:
+      storage: 5Gi
+
+4. Sample Pod using EFS PVC (efs-pod.yaml)
+apiVersion: v1
+kind: Pod
+metadata:
+  name: efs-demo-pod
+spec:
+  containers:
+  - name: app
+    image: nginx
+    volumeMounts:
+    - mountPath: "/data"
+      name: efs-volume
+  volumes:
+  - name: efs-volume
+    persistentVolumeClaim:
+      claimName: efs-pvc
+________________________________________
+📦 B. Helm values.yaml (for EFS CSI driver)
+efs-csi-values.yaml
+controller:
+  region: <your-region>
+  serviceAccount:
+    create: true
+    name: efs-csi-controller-sa
+node:
+  tolerations: []
+If using IRSA, create your own ServiceAccount and attach an IAM role with EFS permissions.
+________________________________________
+⚙️ C. Terraform Code
+1. Create EFS File System
+resource "aws_efs_file_system" "efs" {
+  creation_token = "my-efs"
+  performance_mode = "generalPurpose"
+  throughput_mode  = "bursting"
+  tags = {
+    Name = "my-eks-efs"
+  }
+}
+
+2. Create Mount Targets
+resource "aws_efs_mount_target" "efs_mount" {
+  for_each = toset(var.private_subnet_ids)
+
+  file_system_id  = aws_efs_file_system.efs.id
+  subnet_id       = each.value
+  security_groups = [aws_security_group.efs_sg.id]
+}
+
+3. IAM Policy for EFS CSI Driver
+resource "aws_iam_policy" "efs_csi_policy" {
+  name   = "AmazonEFSCSIDriverPolicy"
+  policy = file("efs-csi-iam-policy.json") # Use official policy
+}
+
+4. IAM Role + IRSA setup (same as EBS setup, adjust service account name to efs-csi-controller-sa)
+________________________________________
+🧪 Deployment Steps:
+Step 1: Deploy Terraform
+    terraform init && terraform apply
+
+Step 2: Add Helm repo and install EFS CSI
+    helm repo add aws-efs-csi-driver https://kubernetes-sigs.github.io/aws-efs-csi-driver/
+    helm repo update
+    helm install aws-efs-csi-driver aws-efs-csi-driver/aws-efs-csi-driver \
+  -n kube-system \
+  -f efs-csi-values.yaml
+
+Step 3: Apply all YAMLs
+    kubectl apply -f efs-sc.yaml
+    kubectl apply -f efs-pv.yaml
+    kubectl apply -f efs-pvc.yaml
+    kubectl apply -f efs-pod.yaml
+________________________________________
+✅ 3. AWS CNI Plugin (Amazon VPC CNI) Setup
+The Amazon VPC CNI plugin is the default networking plugin used in EKS. It assigns VPC IP addresses to Kubernetes pods using ENIs 
+(Elastic Network Interfaces).
+________________________________________
+🧩 A. YAML Manifests
+No direct YAMLs are typically needed, as this is a daemonset managed by Helm or EKS itself. However, custom configurations can be
+made via ConfigMap:
+
+Example: Customize the VPC CNI config
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: aws-node
+  namespace: kube-system
+data:
+  ENABLE_PREFIX_DELEGATION: "true"
+  WARM_IP_TARGET: "5"
+Apply using:
+kubectl apply -f custom-cni-config.yaml
+________________________________________
+📦 B. Helm values.yaml for VPC CNI
+Customize these settings as per your cluster requirements.
+aws-vpc-cni-values.yaml
+env:
+  AWS_VPC_K8S_CNI_CUSTOM_NETWORK_CFG: "false"
+  ENABLE_PREFIX_DELEGATION: "true"
+  WARM_IP_TARGET: "5"
+  LOG_LEVEL: DEBUG
+
+init:
+  enabled: true
+
+serviceAccount:
+  create: false
+  name: aws-node-sa
+________________________________________
+⚙️ C. Terraform Code
+1. IAM Policy for VPC CNI Plugin
+Use the AWS managed policy: AmazonEKS_CNI_Policy
+You can attach it like this:
+resource "aws_iam_role_policy_attachment" "cni_attach" {
+  role       = aws_iam_role.cni_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy"
+}
+
+2. IAM Role + IRSA for aws-node
+hcl
+CopyEdit
+resource "aws_iam_role" "cni_role" {
+  name = "eks-cni-irsa-role"
+
+  assume_role_policy = data.aws_iam_policy_document.assume_role.json
+}
+
+data "aws_iam_policy_document" "assume_role" {
+  statement {
+    actions = ["sts:AssumeRoleWithWebIdentity"]
+    principals {
+      type        = "Federated"
+      identifiers = [aws_iam_openid_connect_provider.oidc.arn]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "${replace(aws_iam_openid_connect_provider.oidc.url, "https://", "")}:sub"
+      values   = ["system:serviceaccount:kube-system:aws-node-sa"]
+    }
+  }
+}
+
+3. Kubernetes Service Account with IRSA annotation
+resource "kubernetes_service_account" "aws_node_sa" {
+  metadata {
+    name      = "aws-node-sa"
+    namespace = "kube-system"
+    annotations = {
+      "eks.amazonaws.com/role-arn" = aws_iam_role.cni_role.arn
+    }
+  }
+}
+________________________________________
+🧪 Deployment Steps:
+Step 1: Deploy Terraform to create IRSA role and SA
+    terraform init && terraform apply
+
+Step 2: Add Helm repo and install plugin
+    helm repo add eks https://aws.github.io/eks-charts
+    helm repo update
+
+Step 3: Install or upgrade AWS VPC CNI plugin using Helm
+helm upgrade --install aws-vpc-cni \
+  eks/aws-vpc-cni \
+  -n kube-system \
+  -f aws-vpc-cni-values.yaml
+
+Step 4: (Optional) Verify pods are using VPC IPst
+    kubectl get pods -o wide
+You should see pods assigned VPC subnet IPs directly.
+________________________________________
+✅ 4. Calico Network Plugin Setup (Self-managed Kubernetes)
+Calico is a powerful CNI plugin that provides networking and network policy enforcement in Kubernetes.
+________________________________________
+🧩 A. YAML Manifests
+1. Calico Default Installation (YAML method)
+For quick installation:
+    kubectl apply -f https://raw.githubusercontent.com/projectcalico/calico/v3.27.0/manifests/calico.yaml
+However, since you requested Helm + Terraform + YAML, we’ll go with Helm.
+________________________________________
+📦 B. Helm-Based Setup
+Step 1: Add Calico Helm repo
+    helm repo add projectcalico https://projectcalico.docs.tigera.io/charts
+    helm repo update
+
+Step 2: Create the required namespace
+    kubectl create namespace tigera-operator
+
+Step 3: Helm install command
+helm install calico projectcalico/tigera-operator \
+  --version v3.27.0 \
+  --namespace tigera-operator
+________________________________________
+calico-values.yaml (optional configuration)
+installation:
+  kubernetesProvider: "k8s"
+  cni:
+    type: Calico
+  calicoNetwork:
+    ipPools:
+    - blockSize: 26
+      cidr: 192.168.0.0/16
+      encapsulation: VXLAN
+      natOutgoing: Enabled
+      nodeSelector: all()
+Use via:
+helm upgrade --install calico projectcalico/tigera-operator \
+  --namespace tigera-operator \
+  -f calico-values.yaml
+________________________________________
+⚙️ C. Terraform Integration
+You can provision Helm + Calico using Terraform’s Helm provider.
+1. Helm Provider Block
+provider "helm" {
+  kubernetes {
+    config_path = "~/.kube/config"
+  }
+}
+
+2. Install Calico via Helm Chart
+resource "helm_release" "calico" {
+  name       = "calico"
+  repository = "https://projectcalico.docs.tigera.io/charts"
+  chart      = "tigera-operator"
+  version    = "v3.27.0"
+  namespace  = "tigera-operator"
+  create_namespace = true
+
+  values = [
+    file("calico-values.yaml")
+  ]
+}
+________________________________________
+🔒 Optional Network Policy YAML
+Example: Deny all traffic by default
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: deny-all
+  namespace: default
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+________________________________________
+✅ 5. Istio Service Mesh Setup (with YAML, Helm, and Terraform)
+Istio is a powerful open-source service mesh that enables traffic management, observability, security, and policy enforcement between 
+microservices in Kubernetes.
+________________________________________
+🧩 A. YAML-Based Installation (Istioctl method)
+Istio can be installed using the istioctl binary. However, Helm is the preferred approach for better customizability.
+Step 1: Download Istio
+  curl -L https://istio.io/downloadIstio | sh -
+  cd istio-1.22.0
+  export PATH=$PWD/bin:$PATH
+
+Step 2: Install Istio base + istiod + ingress gateway
+    istioctl install --set profile=demo -y
+________________________________________
+📦 B. Helm-Based Istio Setup
+Step 1: Add Helm repo
+    helm repo add istio https://istio-release.storage.googleapis.com/charts
+    helm repo update
+
+Step 2: Create istio-system namespace
+    kubectl create namespace istio-system
+Step 3: Install Istio components using Helm
+________________________________________
+1. Install istio-base
+helm install istio-base istio/base \
+  -n istio-system
+________________________________________
+2. Install istiod (control plane)
+helm install istiod istio/istiod \
+  -n istio-system \
+  --wait \
+  --set global.istioNamespace=istio-system
+________________________________________
+3. Install Istio ingress gateway
+helm install istio-ingress istio/gateway \
+  -n istio-system \
+  --wait
+________________________________________
+Optional: istio-values.yaml Example
+global:
+  istioNamespace: istio-system
+
+meshConfig:
+  enablePrometheusMerge: true
+
+pilot:
+  autoscaleEnabled: true
+
+values:
+  telemetry:
+    enabled: true
+
+Use it via:
+helm upgrade --install istiod istio/istiod \
+  -n istio-system \
+  -f istio-values.yaml
+________________________________________
+⚙️ C. Terraform-Based Setup
+1. Provider Setup
+provider "helm" {
+  kubernetes {
+    config_path = "~/.kube/config"
+  }
+}
+________________________________________
+2. Helm Releases via Terraform
+resource "helm_release" "istio_base" {
+  name       = "istio-base"
+  repository = "https://istio-release.storage.googleapis.com/charts"
+  chart      = "base"
+  namespace  = "istio-system"
+  create_namespace = true
+}
+
+resource "helm_release" "istiod" {
+  name       = "istiod"
+  repository = "https://istio-release.storage.googleapis.com/charts"
+  chart      = "istiod"
+  namespace  = "istio-system"
+  depends_on = [helm_release.istio_base]
+
+  values = [file("istio-values.yaml")]
+}
+
+resource "helm_release" "istio_ingress" {
+  name       = "istio-ingress"
+  repository = "https://istio-release.storage.googleapis.com/charts"
+  chart      = "gateway"
+  namespace  = "istio-system"
+  depends_on = [helm_release.istiod]
+}
+________________________________________
+🌐 Istio Sidecar Injection
+Enable automatic sidecar injection for a namespace:
+    kubectl label namespace default istio-injection=enabled
+________________________________________
+✅ Sample Service Deployment YAML with Istio Proxy
+apiVersion: v1
+kind: Service
+metadata:
+  name: myapp-service
+spec:
+  selector:
+    app: myapp
+  ports:
+    - port: 80
+      targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: myapp
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: myapp
+  template:
+    metadata:
+      labels:
+        app: myapp
+    spec:
+      containers:
+        - name: myapp
+          image: nginx
+          ports:
+            - containerPort: 8080
+If namespace has istio-injection=enabled, Istio will automatically inject the Envoy proxy.
+________________________________________
+✅ 4. Calico Network Plugin Setup in Kubernetes (Helm + YAML + Terraform)
+________________________________________
+🔹 A. Definition
+Calico is a CNI plugin that provides networking and network security (via NetworkPolicies) for Kubernetes clusters. It can operate in BGP 
+mode or overlay mode and supports IP-in-IP, VXLAN, and wireguard encryption.
+________________________________________
+🔹 B. Installation via Helm
+Step 1: Add Calico Helm repo
+helm repo add projectcalico https://projectcalico.docs.tigera.io/charts
+helm repo update
+
+Step 2: Install Calico with Helm
+helm install calico projectcalico/tigera-operator \
+  --namespace tigera-operator \
+  --create-namespace
+________________________________________
+🔹 C. values.yaml for Calico (Customizable)
+Here’s a sample calico-values.yaml (optional, can also use defaults):
+installation:
+  calicoNetwork:
+    bgp: Disabled
+    ipPools:
+    - blockSize: 26
+      cidr: 192.168.0.0/16
+      encapsulation: VXLAN
+      natOutgoing: Enabled
+      nodeSelector: all()
+To apply:
+helm upgrade --install calico projectcalico/tigera-operator \
+  --namespace tigera-operator \
+  --values calico-values.yaml
+________________________________________
+🔹 D. Terraform Setup (Helm Provider)
+provider "helm" {
+  kubernetes {
+    config_path = "~/.kube/config"
+  }
+}
+
+resource "helm_release" "calico" {
+  name       = "calico"
+  namespace  = "tigera-operator"
+  repository = "https://projectcalico.docs.tigera.io/charts"
+  chart      = "tigera-operator"
+  create_namespace = true
+
+  values = [file("${path.module}/calico-values.yaml")]
+}
+________________________________________
+🔹 E. Custom Calico Network Policy YAML (Example)
+This allows only traffic within same namespace:
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-same-namespace
+  namespace: default
+spec:
+  podSelector: {}
+  ingress:
+  - from:
+    - podSelector: {}
+________________________________________
+🔹 F. Importance
+•	Enables fine-grained network security via Kubernetes NetworkPolicies.
+•	Helps in multi-tenant clusters.
+•	Works with or without overlay networking.
+•	Integrates with Prometheus, WireGuard, and other advanced options.
+________________________________________
+🔹 G. Interviewer Summary
+Calico is a powerful CNI plugin that offers both networking and security using standard Kubernetes resources. It’s deployed via Helm 
+(tigera-operator) and is customizable via values.yaml or Terraform Helm provider. Calico is crucial in production-grade clusters for
+enforcing pod-level isolation and compliance policies.
+________________________________________
+✅ 5. Istio Service Mesh Setup in Kubernetes (Helm + YAML + Terraform)
+________________________________________
+🔹 A. Definition
+Istio is a powerful service mesh platform that provides traffic management, observability, security, and policy enforcement for 
+microservices running in Kubernetes. It uses Envoy proxies as sidecars to intercept and manage traffic between services.
+________________________________________
+🔹 B. Installation via Helm
+Step 1: Download Istio CLI
+curl -L https://istio.io/downloadIstio | sh -
+cd istio-*/bin
+export PATH=$PWD:$PATH
+
+Step 2: Install Istio Base & Control Plane via Helm
+helm repo add istio https://istio-release.storage.googleapis.com/charts
+helm repo update
+
+Install Istio base:
+helm install istio-base istio/base -n istio-system --create-namespace
+
+Install Istiod (control plane):
+helm install istiod istio/istiod -n istio-system
+________________________________________
+🔹 C. Sample values.yaml for Istiod (Customizable)
+global:
+  proxy:
+    logLevel: warning
+  meshID: mesh1
+  multiCluster:
+    enabled: false
+  network: network1
+pilot:
+  autoscaleEnabled: true
+
+Apply with:
+helm upgrade --install istiod istio/istiod \
+  --namespace istio-system \
+  --values istio-values.yaml
+________________________________________
+🔹 D. Terraform Setup (Helm Provider)
+provider "helm" {
+  kubernetes {
+    config_path = "~/.kube/config"
+  }
+}
+
+resource "helm_release" "istio_base" {
+  name       = "istio-base"
+  namespace  = "istio-system"
+  repository = "https://istio-release.storage.googleapis.com/charts"
+  chart      = "base"
+  create_namespace = true
+}
+
+resource "helm_release" "istiod" {
+  name       = "istiod"
+  namespace  = "istio-system"
+  repository = "https://istio-release.storage.googleapis.com/charts"
+  chart      = "istiod"
+  values     = [file("${path.module}/istio-values.yaml")]
+}
+________________________________________
+🔹 E. Enable Sidecar Injection (Namespace YAML)
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: demo
+  labels:
+    istio-injection: enabled
+Apply:
+bash
+CopyEdit
+kubectl apply -f namespace.yaml
+Now, any pod in demo namespace will automatically have the Envoy proxy sidecar injected.
+________________________________________
+🔹 F. Traffic Management YAML Example (VirtualService)
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: frontend-route
+spec:
+  hosts:
+  - frontend.default.svc.cluster.local
+  http:
+  - route:
+    - destination:
+        host: frontend
+        port:
+          number: 80
+________________________________________
+🔹 G. Importance
+•	Zero-trust security with mTLS.
+•	Granular traffic control (routing, retries, timeouts).
+•	Native observability with telemetry and tracing.
+•	Enables A/B testing, canary deployments, circuit breaking.
+________________________________________
+🔹 H. Interviewer Summary
+Istio is an advanced service mesh deployed via Helm (istiod and base charts). It enables deep control over microservice-to-microservice 
+communication with features like routing, retries, security (mTLS), and observability. It’s commonly used in modern production Kubernetes 
+environments for zero-trust networking and progressive delivery.
+________________________________________
+✅ 8. Vertical Pod Autoscaler (VPA) Setup on Kubernetes
+________________________________________
+🚀 Overview
+Vertical Pod Autoscaler (VPA) automatically adjusts CPU and memory requests/limits for your pods based on usage.
+________________________________________
+🧩 YAML Setup (For a Sample Deployment)
+# vpa.yaml
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: nginx-vpa
+spec:
+  targetRef:
+    apiVersion: "apps/v1"
+    kind: Deployment
+    name: nginx
+  updatePolicy:
+    updateMode: "Auto"
+________________________________________
+📦 Helm Installation
+There’s no official Helm chart by Kubernetes, but the VPA components can be deployed with Helm-compatible manifests:
+Step 1: Clone repo and apply
+git clone https://github.com/kubernetes/autoscaler.git
+cd autoscaler/vertical-pod-autoscaler/
+
+Step 2: Install VPA components (recommender, updater, and admission controller)
+kubectl apply -f deploy/recommender/
+kubectl apply -f deploy/updater/
+kubectl apply -f deploy/admission-controller/
+You can modify these as Helm templates if required.
+________________________________________
+⚙️ Terraform Integration
+We will deploy VPA components using Terraform kubernetes_manifest or helm_release (if you convert to Helm chart).
+Example: Terraform with kubernetes_manifest
+resource "kubernetes_manifest" "vpa" {
+  manifest = yamldecode(file("${path.module}/vpa.yaml"))
+}
+You can also wrap the recommender, updater, and admission-controller into Helm-compatible values if needed.
+________________________________________
+✅ VPA + Sample Deployment YAML
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 200m
+            memory: 256Mi
+---
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: nginx-vpa
+spec:
+  targetRef:
+    apiVersion: "apps/v1"
+    kind: Deployment
+    name: nginx
+  updatePolicy:
+    updateMode: "Auto"
+________________________________________
+✅ 9. AWS Secrets Manager CSI Driver Integration with Kubernetes
+This allows Kubernetes workloads to securely fetch secrets directly from AWS Secrets Manager, using Secrets Store CSI Driver + AWS Provider.
+________________________________________
+🔧 Step-by-Step Setup
+________________________________________
+📦 1. Install Secrets Store CSI Driver using Helm
+helm repo add secrets-store-csi-driver https://kubernetes-sigs.github.io/secrets-store-csi-driver/charts
+helm repo update
+
+helm install csi-secrets-store secrets-store-csi-driver/secrets-store-csi-driver \
+  --namespace kube-system
+________________________________________
+📦 2. Install AWS Provider for the CSI Driver
+kubectl apply -f https://raw.githubusercontent.com/aws/secrets-store-csi-driver-provider-aws/main/deployment/aws-provider-installer.yaml
+________________________________________
+🔐 3. Create IAM Policy & IAM Role (IRSA) for Your Pod
+Sample IAM Policy (for AWS Secrets Manager access):
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "SecretsManagerRead",
+      "Effect": "Allow",
+      "Action": [
+        "secretsmanager:GetSecretValue"
+      ],
+      "Resource": "arn:aws:secretsmanager:<region>:<account-id>:secret:<secret-name>*"
+    }
+  ]
+}
+Attach this policy to an IAM role and associate it with your Kubernetes service account using IRSA.
+________________________________________
+🛠️ 4. SecretProviderClass YAML (AWS Secrets Manager)
+apiVersion: secrets-store.csi.x-k8s.io/v1
+kind: SecretProviderClass
+metadata:
+  name: aws-secrets
+  namespace: default
+spec:
+  provider: aws
+  parameters:
+    objects: |
+      - objectName: "my-secret-name"
+        objectType: "secretsmanager"
+________________________________________
+🧪 5. Deployment That Uses the Secret (Volume Mount)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-secret-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nginx-secret-app
+  template:
+    metadata:
+      labels:
+        app: nginx-secret-app
+    spec:
+      serviceAccountName: sa-aws-csi
+      containers:
+      - name: nginx
+        image: nginx
+        volumeMounts:
+        - name: secrets-store
+          mountPath: "/mnt/secrets-store"
+          readOnly: true
+      volumes:
+      - name: secrets-store
+        csi:
+          driver: secrets-store.csi.k8s.io
+          readOnly: true
+          volumeAttributes:
+            secretProviderClass: "aws-secrets"
+________________________________________
+🛡️ 6. Service Account with IRSA Annotation
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: sa-aws-csi
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::<account-id>:role/<your-irsa-role>
+________________________________________
+🔧 Terraform Integration for AWS Secrets Manager CSI Driver
+You can manage the SecretProviderClass, IAM Role, and Deployment using Terraform:
+Sample Terraform (SecretProviderClass)
+resource "kubernetes_manifest" "aws_secret_provider" {
+  manifest = yamldecode(file("${path.module}/secretproviderclass.yaml"))
+}
+IAM Role + Trust Policy for IRSA (Terraform)
+hcl
+CopyEdit
+resource "aws_iam_role" "irsa_role" {
+  name = "eks-irsa-secrets-csi"
+  assume_role_policy = data.aws_iam_policy_document.irsa_assume.json
+}
+
+data "aws_iam_policy_document" "irsa_assume" {
+  statement {
+    actions = ["sts:AssumeRoleWithWebIdentity"]
+    effect  = "Allow"
+    principals {
+      type        = "Federated"
+      identifiers = [aws_iam_openid_connect_provider.eks.arn]
+    }
+    condition {
+      test     = "StringEquals"
+      variable = "${replace(aws_iam_openid_connect_provider.eks.url, "https://", "")}:sub"
+      values   = ["system:serviceaccount:default:sa-aws-csi"]
+    }
+  }
+}
+________________________________________
+✅ Summary
+| Component           | Setup Tool       | Notes                    |
+| ------------------- | ---------------- | ------------------------ |
+| CSI Driver          | Helm             | secrets-store-csi-driver |
+| AWS Provider        | kubectl manifest | Installed separately     |
+| IAM Role            | Terraform        | IRSA role with policy    |
+| SecretProviderClass | YAML / Terraform | Defines secret objects   |
+| App Deployment      | YAML / Terraform | Mounts secrets from CSI  |
+________________________________________
+✅ 8. Vertical Pod Autoscaler (VPA) – Setup Guide
+________________________________________
+🚀 Purpose:
+The Vertical Pod Autoscaler (VPA) automatically adjusts CPU and memory requests/limits of containers based on usage to optimize resource 
+utilization. It is useful for workloads with unpredictable or growing resource needs.
+________________________________________
+🧩 1. Helm Installation of VPA
+🛠️ Prerequisites:
+•	Kubernetes v1.20+
+•	Metrics server must be running.
+📦 Install via Helm:
+helm repo add fairwinds-stable https://charts.fairwinds.com/stable
+helm repo update
+
+helm install vpa fairwinds-stable/vpa \
+  --namespace kube-system \
+  --create-namespace
+________________________________________
+⚙️ 2. Sample values.yaml for Helm (Optional Customization)
+updater:
+  enabled: true
+
+recommender:
+  enabled: true
+
+admissionController:
+  enabled: true
+
+image:
+  repository: k8s.gcr.io/autoscaling
+  tag: latest
+Save as: vpa-values.yaml
+Install using:
+helm install vpa fairwinds-stable/vpa -f vpa-values.yaml --namespace kube-system
+________________________________________
+📄 3. Sample YAML to Apply VPA to Deployment
+🔧 vpa.yaml:
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: nginx-vpa
+  namespace: default
+spec:
+  targetRef:
+    apiVersion: "apps/v1"
+    kind:       Deployment
+    name:       nginx
+  updatePolicy:
+    updateMode: "Auto"  # Options: "Off", "Initial", "Auto"
+Apply:
+kubectl apply -f vpa.yaml
+________________________________________
+🌐 4. Terraform Integration
+You can deploy the Helm chart using Terraform's helm_release:
+🔧 vpa.tf
+provider "helm" {
+  kubernetes {
+    config_path = "~/.kube/config"
+  }
+}
+
+resource "helm_release" "vpa" {
+  name       = "vpa"
+  repository = "https://charts.fairwinds.com/stable"
+  chart      = "vpa"
+  namespace  = "kube-system"
+  create_namespace = true
+
+  values = [file("${path.module}/vpa-values.yaml")]
+}
+________________________________________
+| Pros                                     | Cons                                      |
+| ---------------------------------------- | ----------------------------------------- |
+| Auto-adjusts pod resources to real usage | Cannot be used with HPA on same resource  |
+| Reduces over-provisioning                | Causes restarts (updates pod spec)        |
+| Good for memory-sensitive apps           | Limited community tooling compared to HPA |
+________________________________________
+🧠 Importance
+•	Optimizes pod resources dynamically.
+•	Especially useful in batch jobs or ML workloads.
+•	Helps reduce under/over-provisioning and costs.
+________________________________________
+🎯 Interviewer-Style Summary
+The Vertical Pod Autoscaler (VPA) helps Kubernetes pods automatically adjust their CPU and memory requests/limits based on historical and 
+live usage. It uses three components: recommender, updater, and admission controller. It’s typically deployed using Helm or raw YAML, 
+and is best suited for workloads that need frequent resource tuning. However, VPA is not compatible with HPA on the same container, 
+so we must choose based on scaling requirements.
+________________________________________
+✅ Component 11: Node Upgrade in Kubernetes (EKS Managed Nodes)
+________________________________________
+⚙️ Objective:
+Upgrade EKS nodes (managed node groups or self-managed nodes) safely using Terraform.
+________________________________________
+🎯 Method 1: Managed Node Group Upgrade (Terraform)
+✅ Step-by-Step Strategy:
+1.	Use Terraform to define a managed node group.
+2.	Upgrade by modifying ami_type or version.
+3.	AWS automatically handles cordoning, draining, and replacing nodes.
+________________________________________
+📁 Terraform Code Example
+main.tf
+provider "aws" {
+  region = "us-west-2"
+}
+
+module "eks" {
+  source          = "terraform-aws-modules/eks/aws"
+  cluster_name    = "dev-cluster"
+  cluster_version = "1.29"
+  subnets         = module.vpc.private_subnets
+  vpc_id          = module.vpc.vpc_id
+
+  eks_managed_node_groups = {
+    dev_nodes = {
+      instance_types = ["t3.medium"]
+      desired_size   = 2
+      min_size       = 1
+      max_size       = 3
+      ami_type       = "AL2_x86_64"
+      version        = "1.29"
+    }
+  }
+}
+Upgrade Steps:
+•	To upgrade the nodes, change the version (e.g., from 1.28 to 1.29) in eks_managed_node_groups.
+•	Run:
+terraform plan
+terraform apply
+AWS will upgrade the nodes without downtime (cordon + drain + launch new nodes).
+________________________________________
+🎯 Method 2: Self-Managed Node Upgrade (Kubeadm)
+If you're using kubeadm-based clusters (non-EKS), node upgrades involve OS-level operations.
+✅ Step-by-Step Manual Strategy:
+1.	Cordon node:
+kubectl cordon <node-name>
+
+2.	Drain node:
+kubectl drain <node-name> --ignore-daemonsets --delete-local-data
+
+3.	SSH into node & upgrade kubelet/kubeadm/kubernetes components:
+sudo apt-get update && \
+sudo apt-get install -y kubelet=1.29.0-00 kubeadm=1.29.0-00 kubectl=1.29.0-00
+
+sudo systemctl daemon-reexec
+sudo systemctl restart kubelet
+
+4.	Uncordon:
+kubectl uncordon <node-name>
+________________________________________
+🛠️ Helm / YAML:
+Not applicable for node upgrades directly. This is infra-level and handled via Terraform or manual commands.
+________________________________________
+📌 Importance:
+•	Regular upgrades ensure performance, feature availability, and security.
+•	EKS managed upgrades are simpler and production-safe.
+•	Self-managed clusters need careful handling to avoid downtime.
+________________________________________
+🧑💼 Interview-Style Summary:
+“To upgrade EKS managed node groups, I use Terraform by updating the version in the eks_managed_node_groups block. AWS automatically
+cordons, drains, and replaces the old nodes. For self-managed clusters using kubeadm, I cordon and drain nodes, SSH in, update Kubernetes 
+binaries, restart kubelet, and then uncordon. For production, I prefer using managed node groups due to ease and safety.”
+________________________________________
+✅ What is an Ingress Controller in Kubernetes?
+Ingress Controller is a Kubernetes component that listens for Ingress resources and routes external HTTP/HTTPS traffic to the appropriate 
+services inside the cluster.
+•	Ingress Resource defines routing rules
+•	Ingress Controller enforces those rules (e.g., NGINX, ALB, Traefik)
+________________________________________
+🔧 1. Installing NGINX Ingress Controller using Helm (generic)
+Step 1: Add the Helm repo
+helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+helm repo update
+
+Step 2: Install the Ingress Controller
+helm install ingress-nginx ingress-nginx/ingress-nginx \
+  --namespace ingress-nginx --create-namespace
+Optional values.yaml:
+controller:
+  replicaCount: 2
+  service:
+    type: LoadBalancer
+  nodeSelector:
+    kubernetes.io/os: linux
+
+Command using values.yaml:
+helm install ingress-nginx ingress-nginx/ingress-nginx \
+  -f values.yaml \
+  --namespace ingress-nginx --create-namespace
+________________________________________
+🔧 2. Ingress Resource Example (for NGINX)
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: example-ingress
+  namespace: default
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: myapp.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: myapp-service
+                port:
+                  number: 80
+________________________________________
+🔧 3. ALB Ingress Controller Setup (AWS Specific)
+Prerequisites:
+•	EKS cluster
+•	OIDC provider configured
+•	IAM role for service account
+Step-by-step:
+a) Add AWS Load Balancer Controller Helm repo:
+helm repo add eks https://aws.github.io/eks-charts
+helm repo update
+
+b) Create IAM OIDC provider (only once per cluster):
+eksctl utils associate-iam-oidc-provider \
+  --region us-east-1 \
+  --cluster my-eks-cluster \
+  --approve
+
+c) Create IAM policy:
+Download and apply the IAM policy:
+curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/main/docs/install/iam_policy.json
+
+aws iam create-policy \
+  --policy-name AWSLoadBalancerControllerIAMPolicy \
+  --policy-document file://iam-policy.json
+
+d) Create IAM role for ServiceAccount using eksctl:
+eksctl create iamserviceaccount \
+  --cluster=my-eks-cluster \
+  --namespace=kube-system \
+  --name=aws-load-balancer-controller \
+  --attach-policy-arn=arn:aws:iam::<ACCOUNT_ID>:policy/AWSLoadBalancerControllerIAMPolicy \
+  --approve
+
+e) Install ALB Controller via Helm:
+helm install aws-load-balancer-controller eks/aws-load-balancer-controller \
+  -n kube-system \
+  --set clusterName=my-eks-cluster \
+  --set serviceAccount.create=false \
+  --set serviceAccount.name=aws-load-balancer-controller \
+  --set region=us-east-1 \
+  --set vpcId=vpc-xxxxxxxx \
+  --set ingressClass=alb
+________________________________________
+🔧 4. Ingress Resource for ALB:
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: alb-ingress
+  namespace: default
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/group.name: my-group
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
+spec:
+  ingressClassName: alb
+  rules:
+    - host: myapp.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: myapp-service
+                port:
+                  number: 80
+________________________________________
+🔧 5. Terraform Example for ALB Ingress Controller on EKS
+You can use the helm_release block to deploy the controller:
+resource "helm_release" "aws_alb_ingress" {
+  name       = "aws-load-balancer-controller"
+  repository = "https://aws.github.io/eks-charts"
+  chart      = "aws-load-balancer-controller"
+  namespace  = "kube-system"
+
+  set {
+    name  = "clusterName"
+    value = var.cluster_name
+  }
+
+  set {
+    name  = "serviceAccount.create"
+    value = "false"
+  }
+
+  set {
+    name  = "serviceAccount.name"
+    value = "aws-load-balancer-controller"
+  }
+
+  set {
+    name  = "region"
+    value = var.region
+  }
+
+  set {
+    name  = "vpcId"
+    value = var.vpc_id
+  }
+
+  set {
+    name  = "ingressClass"
+    value = "alb"
+  }
+}
+________________________________________
+| Pros                           | Cons                                     |
+| ------------------------------ | ---------------------------------------- |
+| Centralized routing management | Requires setup and maintenance           |
+| TLS termination support        | Different controllers behave differently |
+| Path and subdomain routing     | ALB requires IAM permissions             |
+| Load balancing across services | Misconfigured Ingress = traffic issues   |
+________________________________________
+🧠 Interviewer Summary
+An Ingress Controller in Kubernetes acts as an entry point for external traffic, managing routing rules defined in Ingress resources. 
+We can install NGINX or ALB controllers using Helm. NGINX is suitable for basic routing, while AWS ALB Ingress integrates well with 
+AWS-managed infrastructure. The controller is responsible for managing underlying LoadBalancers and routing traffic to the correct
+service. It simplifies load balancing, path-based routing, and TLS termination within the cluster.
+________________________________________
+✅ Directory Layout
+alb-ingress-controller/
+├── README.md
+├── terraform/
+│   ├── main.tf
+│   ├── variables.tf
+│   ├── outputs.tf
+│   └── provider.tf
+├── helm/
+│   └── aws-load-balancer-controller/
+│       ├── values.yaml
+├── kubernetes/
+│   ├── ingress.yaml
+│   ├── sample-app-deployment.yaml
+│   └── sample-app-service.yaml
+________________________________________
+📁 1. terraform/main.tf
+Creates:
+•	IAM OIDC provider
+•	IAM Role + Policy for ALB Controller
+•	EKS config (if needed)
+
+provider "aws" {
+  region = var.region
+}
+
+resource "aws_iam_policy" "alb_ingress_policy" {
+  name = "AWSLoadBalancerControllerIAMPolicy"
+  policy = file("${path.module}/iam_policy.json")
+}
+
+resource "aws_iam_role" "alb_controller_role" {
+  name = "AmazonEKSLoadBalancerControllerRole"
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Action = "sts:AssumeRoleWithWebIdentity"
+      Effect = "Allow"
+      Principal = {
+        Federated = var.oidc_provider_arn
+      }
+      Condition = {
+        StringEquals = {
+          "${replace(var.oidc_provider_url, "https://", "")}:sub" = "system:serviceaccount:kube-system:aws-load-balancer-controller"
+        }
+      }
+    }]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "alb_policy_attach" {
+  role       = aws_iam_role.alb_controller_role.name
+  policy_arn = aws_iam_policy.alb_ingress_policy.arn
+}
+________________________________________
+📁 2. terraform/variables.tf
+variable "region" {
+  default = "us-east-1"
+}
+
+variable "oidc_provider_arn" {}
+variable "oidc_provider_url" {}
+________________________________________
+📁 3. terraform/iam_policy.json
+Download this from the official AWS repo:
+bash
+CopyEdit
+wget https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/main/docs/install/iam_policy.json
+________________________________________
+📁 4. helm/aws-load-balancer-controller/values.yaml
+clusterName: your-cluster-name
+region: us-east-1
+vpcId: vpc-xxxxxx
+serviceAccount:
+  create: false
+  name: aws-load-balancer-controller
+________________________________________
+📁 5. kubernetes/sample-app-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sample-app
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: sample
+  template:
+    metadata:
+      labels:
+        app: sample
+    spec:
+      containers:
+      - name: app
+        image: nginx
+        ports:
+        - containerPort: 80
+________________________________________
+📁 6. kubernetes/sample-app-service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: sample-app
+spec:
+  ports:
+    - port: 80
+      targetPort: 80
+  selector:
+    app: sample
+________________________________________
+📁 7. kubernetes/ingress.yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: sample-ingress
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
+spec:
+  ingressClassName: alb
+  rules:
+    - http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: sample-app
+                port:
+                  number: 80
+________________________________________
+✅ Deployment Steps
+1. Create IAM resources via Terraform
+cd terraform/
+terraform init
+terraform apply
+
+2. Add Helm repo and install the controller
+helm repo add eks https://aws.github.io/eks-charts
+helm upgrade -i aws-load-balancer-controller eks/aws-load-balancer-controller \
+  -n kube-system \
+  -f helm/aws-load-balancer-controller/values.yaml \
+  --set serviceAccount.name=aws-load-balancer-controller \
+  --set clusterName=your-cluster-name
+
+3. Deploy the app and ingress
+kubectl apply -f kubernetes/
+________________________________________
+📘 README.md (Example)
+# AWS Load Balancer Controller Setup
+This repo installs the ALB Ingress Controller on EKS using Helm, Terraform, and Kubernetes manifests.
+
+## Structure
+- `terraform/`: IAM role and policy
+- `helm/`: Helm values file
+- `kubernetes/`: Sample app, service, and ingress
+
+## Instructions
+1. Apply Terraform to create IAM role.
+2. Deploy Helm chart.
+3. Apply app + ingress.
+________________________________________
+🔐 KUBERNETES AUTHENTICATION METHODS
+Authentication determines who the user or service is (e.g., human user, service account, CI/CD pipeline, etc.).
+1. Static Password File (Basic Auth)
+📝 Deprecated (as of Kubernetes v1.19+) — not recommended for production.
+•	Define usernames and passwords in a static CSV file.
+•	Used in early Kubernetes versions for quick testing.
+
+# Example static-password-file.csv
+password123,admin,1
+🔸 Use Case: Testing environments
+🔸 Cons: Insecure, not scalable, deprecated
+________________________________________
+2. Static Token File
+Similar to basic auth, but uses bearer tokens
+•	CSV file with tokens provided to the API server.
+# Example token.csv
+abcdef1234567890,admin,1
+🔸 Use Case: CI/CD systems, temporary users
+🔸 Cons: Insecure, not rotated automatically
+________________________________________
+3. X.509 Client Certificates
+•	Certificate-based authentication; user is issued a client certificate signed by a trusted CA.
+•	The kube-apiserver validates it.
+# Generate certificate
+openssl genrsa -out user.key 2048
+openssl req -new -key user.key -out user.csr -subj "/CN=dev-user/O=dev-team"
+openssl x509 -req -in user.csr -CA ca.crt -CAkey ca.key -CAcreateserial -out user.crt -days 365
+🔸 Use Case: Long-term secure user auth
+🔸 Pros: Strong authentication
+🔸 Cons: Manual management, no revocation
+________________________________________
+4. Service Account Tokens (Recommended for Pods)
+•	Each pod automatically gets a service account token mounted at /var/run/secrets/kubernetes.io/serviceaccount/token
+•	Used by apps inside the cluster
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: my-app-sa
+🔸 Use Case: Pod-to-API server communication
+🔸 Pros: Auto-managed, integrated with RBAC
+🔸 Cons: Needs proper RBAC restriction
+________________________________________
+5. OpenID Connect (OIDC) — ✅ Production-Ready
+•	Uses external identity providers (Google, Azure AD, Okta, Keycloak).
+•	Best for centralized identity management.
+# kube-apiserver flags (example)
+--oidc-issuer-url=https://accounts.google.com \
+--oidc-client-id=k8s-client \
+--oidc-username-claim=email \
+--oidc-groups-claim=groups
+🔸 Use Case: Enterprise SSO, GitHub login, SAML integration
+🔸 Pros: Centralized IAM, secure, scalable
+🔸 Cons: Needs OIDC provider + HTTPS setup
+________________________________________
+6. Webhook Token Authentication
+•	Auth request forwarded to an external webhook.
+•	Webhook verifies identity and returns response.
+# webhook config file
+apiVersion: v1
+kind: Config
+clusters:
+  - name: webhook
+    cluster:
+      server: https://auth-server.local/authenticate
+🔸 Use Case: Custom logic (e.g., LDAP, 2FA)
+🔸 Pros: Fully customizable
+🔸 Cons: Adds external dependency
+________________________________________
+🛡️ KUBERNETES AUTHORIZATION METHODS
+Authorization determines what the authenticated user can do.
+1. RBAC (Role-Based Access Control) — ✅ Default and Recommended
+•	Grant permissions using Roles and RoleBindings
+# Role (namespace scoped)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: dev
+  name: pod-reader
+rules:
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "watch", "list"]
+
+# RoleBinding
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: read-pods-binding
+  namespace: dev
+subjects:
+- kind: User
+  name: alice
+  apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: Role
+  name: pod-reader
+  apiGroup: rbac.authorization.k8s.io
+🔸 Use Case: Granting fine-grained permissions
+🔸 Pros: Secure, namespace and cluster-wide
+🔸 Cons: Can become complex with many roles
+________________________________________
+2. ABAC (Attribute-Based Access Control)
+📝 Deprecated
+•	Uses a JSON policy file based on user/resource/verb attributes.
+{"user":"dev", "namespace":"dev", "resource":"pods", "verb":"get", "allow": true}
+🔸 Use Case: Custom environments
+🔸 Cons: Not dynamic, hard to maintain
+________________________________________
+3. Webhook Authorization
+•	Like authentication webhook, but for authorization.
+•	Sends a POST request to an external server with the user and action.
+# kube-apiserver
+--authorization-mode=Webhook
+--authorization-webhook-config-file=/etc/webhook-authz.conf
+🔸 Use Case: Integrate with external auth systems (e.g., LDAP, AD)
+🔸 Pros: Full control
+🔸 Cons: Slower, external dependency
+________________________________________
+4. Node Authorization
+•	Special-purpose mode to restrict what kubelets (nodes) can access.
+•	Automatically enabled for internal Kubernetes communication.
+🔸 Use Case: Secure kubelet access
+🔸 Pros: Built-in, secure
+🔸 Cons: Limited to nodes only
+________________________________________
+5. AlwaysAllow / AlwaysDeny (for testing)
+Not used in production.
+# kube-apiserver flag
+--authorization-mode=AlwaysAllow
+________________________________________
+| Feature      | Authentication Methods              | Authorization Methods     |
+| ------------ | ----------------------------------- | ------------------------- |
+| Purpose      | Identify *who* is calling           | Define *what* they can do |
+| Default      | X.509 certs, Service Account tokens | RBAC                      |
+| Recommended  | OIDC, Service Accounts              | RBAC                      |
+| Customizable | Webhook, OIDC                       | Webhook                   |
+| Deprecated   | Basic Auth, Static Tokens           | ABAC                      |
+________________________________________
+✅ Best Practices
+•	Use OIDC + RBAC for production-grade setups.
+•	Use ServiceAccounts for pod workloads.
+•	Limit permissions by namespace and verb.
+•	Regularly audit roles and access.
+•	Prefer Helm/Infra as Code to define RBAC policies.
+
+✅ Kubernetes Authorization – Explained
+Kubernetes Authorization determines what actions an authenticated user or service account can perform on Kubernetes resources. 
+Once a user is authenticated, Kubernetes checks authorization using one or more authorization modules.
+________________________________________
+🔐 1. What is Authorization in Kubernetes?
+Authorization is the process of determining if an authenticated entity (user, group, or service account) has permissions to perform a 
+specific verb (get, list, create, delete, etc.) on a resource (pods, deployments, etc.) within a namespace.
+Authorization is enforced after authentication and before the request is processed by the Kubernetes API.
+________________________________________
+| Module                 | Description                                                           |
+| ---------------------- | --------------------------------------------------------------------- |
+| **Node Authorization** | Used internally for kubelets (nodes) to access limited API resources. |
+| **RBAC**               | Role-Based Access Control, the most commonly used mechanism.          |
+| **ABAC**               | Attribute-Based Access Control using policy files.                    |
+| **Webhook**            | External authorization service using HTTP callbacks.                  |
+| **AlwaysAllow**        | Allows all requests (not recommended for production).                 |
+| **AlwaysDeny**         | Denies all requests (used for testing).                               |
+________________________________________
+🔎 2. Detailed Breakdown of Authorization Types
+________________________________________
+✅ 1. Node Authorization
+•	Purpose: Special-purpose authorizer for kubelet processes.
+•	Use Case: Allow nodes to access secrets, configmaps, and pods assigned to them.
+•	Automatically enabled on kube-apiserver.
+--authorization-mode=Node,RBAC
+•	Restrictive and automatically identifies nodes via certificates (system:node:<nodename> group).
+•	You should use RBAC alongside it.
+________________________________________
+✅ 2. RBAC (Role-Based Access Control)
+•	Most widely used and recommended method
+•	Grants access based on roles and bindings
+🔹Key Components:
+•	Role: Defines permissions (verbs, resources) within a namespace
+•	ClusterRole: Same as Role, but across the whole cluster
+•	RoleBinding: Binds a Role to users or service accounts in a namespace
+•	ClusterRoleBinding: Binds ClusterRole across namespaces
+🧾 Example:
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: dev
+  name: pod-reader
+rules:
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "watch", "list"]
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: read-pods
+  namespace: dev
+subjects:
+- kind: User
+  name: dev-user
+  apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: Role
+  name: pod-reader
+  apiGroup: rbac.authorization.k8s.io
+________________________________________
+✅ 3. ABAC (Attribute-Based Access Control)
+•	Uses JSON-formatted policy files with user, group, resource, verb attributes.
+•	Enabled with:
+--authorization-mode=ABAC --authorization-policy-file=/path/to/policy.json
+
+🧾 Example:
+{
+  "apiVersion": "abac.authorization.kubernetes.io/v1beta1",
+  "kind": "Policy",
+  "spec": {
+    "user": "dev-user",
+    "namespace": "dev",
+    "resource": "pods",
+    "apiGroup": "",
+    "verb": "get"
+  }
+}
+•	Not recommended for production — hard to manage, not dynamic like RBAC.
+________________________________________
+✅ 4. Webhook Authorization
+•	Sends API requests to a custom external authorization service (webhook).
+•	The webhook server replies with "Allow" or "Deny".
+•	Use when you have custom business logic or centralized authorization systems.
+Example Config:
+--authorization-mode=Webhook
+--authorization-webhook-config-file=/etc/kubernetes/authz-webhook-config.yaml
+Sample webhook request/response:
+json
+CopyEdit
+// Request sent to webhook server
+{
+  "kind": "SubjectAccessReview",
+  "spec": {
+    "user": "alice",
+    "resourceAttributes": {
+      "namespace": "default",
+      "verb": "get",
+      "resource": "pods"
+    }
+  }
+}
+________________________________________
+✅ 5. AlwaysAllow (Not for Production)
+•	Grants full access to everyone.
+•	Only for testing.
+--authorization-mode=AlwaysAllow
+________________________________________
+✅ 6. AlwaysDeny (Not for Production)
+•	Denies all requests.
+•	Used for debugging only.
+--authorization-mode=AlwaysDeny
+________________________________________
+🚦 How Kubernetes Uses Authorization
+1.	User is authenticated (e.g., via cert, token, etc.)
+2.	Kubernetes checks each configured authorizer in order:
+o	Node
+o	RBAC
+o	Webhook
+o	etc.
+3.	The first authorizer that returns Allow or Deny is used.
+4.	If no authorizer allows, the request is denied.
+________________________________________
+| Scenario                      | Recommended Authorization |
+| ----------------------------- | ------------------------- |
+| Production Kubernetes cluster | **RBAC + Node**           |
+| Complex enterprise policies   | **RBAC + Webhook**        |
+| Kubelet/node-specific access  | **Node Authorization**    |
+| Legacy/testing/dev            | ABAC / AlwaysAllow        |
+________________________________________
+📌 Interview Summary
+•	Authorization in Kubernetes ensures that users and service accounts have the right level of access to resources.
+•	The RBAC system is the most used and recommended authorization mode.
+•	Multiple authorizers can be chained and evaluated in order.
+•	Kubernetes supports custom logic via Webhook authorization.
+•	Misconfigured or overly permissive authorization can lead to security vulnerabilities.
+________________________________________
+| Authorization Mode     | Description                                                            |
+| ---------------------- | ---------------------------------------------------------------------- |
+| `Node`                 | Grants permissions to kubelets.                                        |
+| `RBAC`                 | Role-Based Access Control using `Role`, `ClusterRole`, and `Bindings`. |
+| `ABAC`                 | Attribute-Based Access Control (requires a JSON policy file).          |
+| `Webhook`              | External authorization via HTTP webhook.                               |
+| `AlwaysAllow` / `Deny` | For testing only, allows or denies all requests.                       |
+________________________________________
+✅ Step-by-Step with YAMLs: Focus on RBAC (the most widely used)
+________________________________________
+✅ 1. RBAC - Role Based Access Control
+RBAC uses:
+•	Role / ClusterRole
+•	RoleBinding / ClusterRoleBinding
+•	ServiceAccount
+________________________________________
+🔹 Example 1: Role and RoleBinding (Namespace-specific)
+🧾 role.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: dev
+  name: pod-reader
+rules:
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "watch", "list"]
+
+🧾 rolebinding.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: read-pods-binding
+  namespace: dev
+subjects:
+- kind: User
+  name: dev-user
+  apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: Role
+  name: pod-reader
+  apiGroup: rbac.authorization.k8s.io
+________________________________________
+🔹 Example 2: ClusterRole and ClusterRoleBinding (Cluster-wide access)
+🧾 clusterrole.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: cluster-admin-readonly
+rules:
+- apiGroups: ["*"]
+  resources: ["*"]
+  verbs: ["get", "list", "watch"]
+
+🧾 clusterrolebinding.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: cluster-readonly-binding
+subjects:
+- kind: User
+  name: readonly-user
+  apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: ClusterRole
+  name: cluster-admin-readonly
+  apiGroup: rbac.authorization.k8s.io
+________________________________________
+🔹 Example 3: Bind ServiceAccount to Role (for Pods)
+🧾 serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: sa-pod-reader
+  namespace: dev
+
+🧾 rolebinding-sa.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: sa-pod-reader-binding
+  namespace: dev
+subjects:
+- kind: ServiceAccount
+  name: sa-pod-reader
+  namespace: dev
+roleRef:
+  kind: Role
+  name: pod-reader
+  apiGroup: rbac.authorization.k8s.io
+________________________________________
+🧾 Optional: Create User Certificates (for RoleBinding)
+To bind users like dev-user or readonly-user, you typically create TLS certificates and pass them via kubectl config:
+kubectl config set-credentials dev-user --client-certificate=dev-user.crt --client-key=dev-user.key
+kubectl config set-context dev-context --cluster=my-cluster --user=dev-user
+kubectl config use-context dev-context
+________________________________________
+| Mode               | YAML Support | Notes                                                                 |
+| ------------------ | ------------ | --------------------------------------------------------------------- |
+| ABAC               | ❌            | Uses static JSON policy file passed via `--authorization-policy-file` |
+| Node               | ❌            | Automatically assigned to kubelets                                    |
+| Webhook            | ❌            | External, configured via flags                                        |
+| AlwaysAllow / Deny | ❌            | Not used in production                                                |
+________________________________________
+✅ Kubernetes Authorization Types – Overview
+Kubernetes supports three main types of authorization modules to control access to the Kubernetes API:
+________________________________________
+1. Node Authorization
+•	Purpose: Grants permissions to kubelets (nodes) to interact with resources they need (like pods on that node).
+•	Use case: Automatically used when kubelets access the API server.
+•	How it works: Evaluates if a request is from a node and allows access only to resources associated with that node.
+________________________________________
+2. Attribute-Based Access Control (ABAC)
+•	Purpose: Legacy support system that uses static JSON policy files.
+•	Use case: Not recommended for production; lacks flexibility.
+•	How it works: Checks incoming request attributes (user, verb, resource, etc.) against policies in a static file.
+Example JSON Policy:
+{
+  "apiVersion": "abac.authorization.kubernetes.io/v1beta1",
+  "kind": "Policy",
+  "spec": {
+    "user": "dev-user",
+    "namespace": "default",
+    "resource": "pods",
+    "apiGroup": "*",
+    "verb": "get"
+  }
+}
+________________________________________
+3. Role-Based Access Control (RBAC) ✅ Recommended
+•	Purpose: Fine-grained, dynamic authorization system.
+•	Use case: Most widely used in production clusters.
+•	How it works: Grants users or groups access based on Roles and RoleBindings (or ClusterRole + ClusterRoleBinding).
+________________________________________
+🧾 RBAC YAML Examples (Step-by-Step)
+________________________________________
+a. Create Role (namespace-scoped)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: dev
+  name: pod-reader
+rules:
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "watch", "list"]
+________________________________________
+b. Bind Role to User
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: read-pods-binding
+  namespace: dev
+subjects:
+- kind: User
+  name: dev-user  # the Kubernetes user
+  apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: Role
+  name: pod-reader
+  apiGroup: rbac.authorization.k8s.io
+________________________________________
+c. ClusterRole (cluster-wide permissions)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: admin-cluster-role
+rules:
+- apiGroups: [""]
+  resources: ["pods", "nodes"]
+  verbs: ["get", "list", "watch"]
+________________________________________
+d. Bind ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: cluster-admin-binding
+subjects:
+- kind: User
+  name: cluster-user
+  apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: ClusterRole
+  name: admin-cluster-role
+  apiGroup: rbac.authorization.k8s.io
+________________________________________
+4. Webhook Authorization
+•	Purpose: Delegates authorization decisions to an external service.
+•	Use case: Custom policies based on your business logic.
+•	How it works: API server sends a webhook request to an external authorizer API.
+Example webhook request:
+{
+  "apiVersion": "authorization.k8s.io/v1beta1",
+  "kind": "SubjectAccessReview",
+  "spec": {
+    "user": "john",
+    "resourceAttributes": {
+      "namespace": "dev",
+      "verb": "get",
+      "resource": "pods"
+    }
+  }
+}
+________________________________________
+| Authorization Type | Scope             | Dynamic? | Recommended? | Notes                   |
+| ------------------ | ----------------- | -------- | ------------ | ----------------------- |
+| Node               | Node-specific     | Yes      | ✅            | Automatic for kubelets  |
+| ABAC               | Cluster-wide      | No       | ❌            | Deprecated in most use  |
+| RBAC               | Namespace/Cluster | Yes      | ✅            | Most common & secure    |
+| Webhook            | External System   | Yes      | ⚠️           | Advanced custom control |
+________________________________________
+✅ What is kubeconfig?
+The kubeconfig file is used by kubectl and other Kubernetes clients to:
+•	Authenticate (who you are),
+•	Authorize (what you can do),
+•	Target the correct cluster and context.
+________________________________________
+🔐 kubeconfig - Key Components
+apiVersion: v1
+kind: Config
+clusters:
+- name: my-cluster
+  cluster:
+    server: https://<API_SERVER_ENDPOINT>
+    certificate-authority-data: <BASE64_CA_CERT>
+
+users:
+- name: my-user
+  user:
+    token: <BEARER_TOKEN>
+    # or
+    username: admin
+    password: secret
+    # or
+    client-certificate-data: <BASE64_CERT>
+    client-key-data: <BASE64_KEY>
+
+contexts:
+- name: my-context
+  context:
+    cluster: my-cluster
+    user: my-user
+    namespace: default
+
+current-context: my-context
+________________________________________
+| Method               | Description                                                       |
+| -------------------- | ----------------------------------------------------------------- |
+| `token`              | Used for service accounts or OIDC-based IAM tokens (EKS)          |
+| `username/password`  | Basic auth (not recommended)                                      |
+| `client-certificate` | For mTLS-based auth                                               |
+| `exec`               | For dynamically retrieving credentials (e.g., AWS CLI or GCP SDK) |
+| `auth-provider`      | Deprecated; replaced by `exec`                                    |
+| `aws eks get-token`  | Used by AWS EKS to get short-lived tokens via IAM                 |
+
+📁 GitHub-Ready Directory Structure for Auth Setup
+k8s-auth/
+├── kubeconfig/
+│   ├── basic-auth-config.yaml
+│   ├── cert-auth-config.yaml
+│   ├── eks-iam-auth-config.yaml
+│   ├── sa-token-config.yaml
+├── authn-methods/
+│   ├── serviceaccount-token.yaml
+│   ├── client-cert-generation.sh
+├── authz-methods/
+│   ├── rbac-role.yaml
+│   ├── rbac-rolebinding.yaml
+│   ├── abac-policy.json
+│   ├── webhook-auth-config.yaml
+│   ├── node-auth.yaml
+________________________________________
+✅ kubeconfig for AWS EKS (example)
+aws eks update-kubeconfig --region us-east-1 --name my-eks-cluster
+Behind the scenes, this populates ~/.kube/config with:
+users:
+- name: arn:aws:iam::111122223333:role/EKSAdminRole
+  user:
+    exec:
+      apiVersion: "client.authentication.k8s.io/v1beta1"
+      command: "aws"
+      args:
+        - "eks"
+        - "get-token"
+        - "--cluster-name"
+        - "my-eks-cluster"
+________________________________________
+🧠 Summary
+•	The kubeconfig file is where all auth/authz for kubectl is defined.
+•	It supports multiple users, clusters, and contexts.
+•	Works with all types of authentication: certs, tokens, IAM, SA, exec plugins, etc.
+•	Required for interacting securely with any Kubernetes cluster.
+
+What is that default kubeconfig file
+ChatGPT said:
+✅ What Is the Default kubeconfig File in Kubernetes?
+The default kubeconfig file is the configuration file used by the kubectl CLI to interact with a Kubernetes cluster. It stores cluster 
+connection info, user credentials, and context (i.e., which cluster and namespace to use).
+________________________________________
+📌 Default Location:
+~/.kube/config
+•	~ refers to the current user's home directory.
+•	On Linux/Mac: /home/username/.kube/config
+•	On Windows: C:\Users\username\.kube\config
+________________________________________
+🧠 Purpose of the kubeconfig File
+The kubeconfig file allows kubectl to:
+•	Connect to a Kubernetes API server
+•	Use TLS certificates or tokens for authentication
+•	Identify the correct namespace
+•	Select the correct user/cluster/context
+________________________________________
+🧩 Example kubeconfig File
+apiVersion: v1
+kind: Config
+
+clusters:
+- name: my-cluster
+  cluster:
+    server: https://<api-server-endpoint>
+    certificate-authority-data: <base64-encoded-CA-cert>
+
+users:
+- name: my-user
+  user:
+    client-certificate-data: <base64-cert>
+    client-key-data: <base64-key>
+
+contexts:
+- name: my-context
+  context:
+    cluster: my-cluster
+    user: my-user
+    namespace: default
+
+current-context: my-context
+________________________________________
+🔁 How kubectl Uses It
+When you run:
+kubectl get pods
+kubectl reads the current context from ~/.kube/config, looks up:
+•	The cluster's API server endpoint
+•	The user's credentials
+•	The namespace (default if not specified)
+Then it makes the request to the API server securely.
+________________________________________
+📥 Auto-Generated by Cloud Providers
+•	EKS: After running aws eks update-kubeconfig --name <cluster-name>, AWS updates this file.
+•	GKE: Google Cloud does the same via gcloud container clusters get-credentials.
+•	AKS: Azure via az aks get-credentials.
+________________________________________
+🛠️ You Can Also Manually Create or Merge Configs
+You can use the KUBECONFIG environment variable to merge multiple kubeconfigs:
+
+export KUBECONFIG=~/.kube/config:/path/to/another/config
+kubectl config view --merge
+________________________________________
+| Property     | Description                                        |
+| ------------ | -------------------------------------------------- |
+| Default path | `~/.kube/config`                                   |
+| Used by      | `kubectl` and client tools                         |
+| Contains     | Clusters, users, contexts, and authentication info |
+| Managed by   | You, or tools like `aws eks update-kubeconfig`     |
+________________________________________
+✅ Does It Work with an AWS IAM User?
+Yes, it works — but only if the IAM user is explicitly authorized in the EKS cluster via the aws-auth ConfigMap.
+________________________________________
+🔐 Background: How AWS Auth Works in EKS
+EKS does not natively use Kubernetes RBAC for identity management. Instead, it integrates with AWS IAM through a special ConfigMap:
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: aws-auth
+  namespace: kube-system
+data:
+  mapUsers: |
+    - userarn: arn:aws:iam::111122223333:user/my-user
+      username: my-user
+      groups:
+        - system:masters
+To allow an IAM user (e.g., arn:aws:iam::123456789012:user/pooja) to access the cluster:
+
+🛠️ Step-by-Step: Enable Access for IAM User
+1. Update aws-auth ConfigMap
+You must edit the aws-auth ConfigMap in the cluster and add your IAM user:
+kubectl edit configmap aws-auth -n kube-system
+
+Add under mapUsers:
+  mapUsers: |
+    - userarn: arn:aws:iam::123456789012:user/pooja
+      username: pooja
+      groups:
+        - system:masters
+✅ This gives full admin access. You can restrict to limited groups like system:read-only if needed.
+
+2. Update kubeconfig with the IAM User Profile
+Use the AWS CLI profile associated with the IAM user:
+aws eks update-kubeconfig \
+  --name my-cluster \
+  --region us-west-2 \
+  --profile my-iam-user
+This updates ~/.kube/config to include the right cluster and authentication info.
+
+3. Test Access
+kubectl get nodes
+If aws-auth was updated correctly, and your IAM user has sufficient permissions (e.g., eks:DescribeCluster), it will work.
+________________________________________
+🔁 Behind the Scenes (Authentication Flow)
+1.	kubectl calls aws eks get-token using your AWS profile.
+2.	The IAM user gets a signed token (valid for 15 minutes).
+3.	That token is used to authenticate to the EKS API server.
+4.	The API server consults the aws-auth ConfigMap to authorize the IAM identity.
+________________________________________
+| Area                    | Notes                                                       |
+| ----------------------- | ----------------------------------------------------------- |
+| Authentication          | Must use `aws eks get-token` (IAM auth)                     |
+| Authorization           | Controlled via `aws-auth` ConfigMap                         |
+| Token Expiry            | Token is short-lived (15 mins); auto-refreshed by `kubectl` |
+| Not Native K8s Identity | EKS uses IAM as an auth source, not K8s native users        |
+________________________________________
+✅ Summary
+•	Yes, you can update the kubeconfig to use an AWS IAM user.
+•	But that IAM user must be added to the aws-auth ConfigMap.
+•	Then you can use the aws eks update-kubeconfig --profile <iam-user-profile> to configure access.
+•	Kubernetes authentication happens via a signed token generated by AWS.
+________________________________________
+✅ 1. What is the default kubeconfig file?
+•	It is typically located at:
+~/.kube/config
+•	This file contains cluster details, user credentials, and context, allowing the kubectl CLI to interact with the cluster.
+________________________________________
+✅ 2. Authentication via AWS IAM (aws eks update-kubeconfig)
+When using:
+aws eks update-kubeconfig --region <region> --name <cluster-name>
+
+It updates the kubeconfig to use AWS IAM credentials. It adds an entry like:
+users:
+- name: arn:aws:iam::<ACCOUNT_ID>:user/<USERNAME>
+  user:
+    exec:
+      apiVersion: "client.authentication.k8s.io/v1beta1"
+      command: "aws"
+      args:
+        - "eks"
+        - "get-token"
+        - "--region"
+        - "<region>"
+        - "--cluster-name"
+        - "<cluster-name>"
+✅ This enables IAM-based authentication using aws eks get-token.
+Authentication ✅ — IAM user is verified via AWS STS.
+________________________________________
+✅ 3. Authorization in EKS via aws-auth ConfigMap
+Even if IAM authentication works, authorization is determined by whether the IAM identity is mapped to a Kubernetes RBAC user/group in 
+the aws-auth ConfigMap:
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: aws-auth
+  namespace: kube-system
+data:
+  mapUsers: |
+    - userarn: arn:aws:iam::<ACCOUNT_ID>:user/<USERNAME>
+      username: <USERNAME>
+      groups:
+        - system:masters
+Authorization ✅ — Kubernetes allows this user if mapped to a group like system:masters.
+________________________________________
+✅ Summary: How kubeconfig enables both authentication and authorization
+| Step                   | Role                                   |
+| ---------------------- | -------------------------------------- |
+| `kubeconfig` entry     | Enables `aws eks get-token` auth       |
+| AWS IAM (STS token)    | Handles **authentication**             |
+| `aws-auth` ConfigMap   | Maps IAM to RBAC roles (authorization) |
+| `kubectl` uses context | Ties user + cluster + namespace        |
+________________________________________
+✅ Real Use Case
+•	You create an EKS cluster.
+•	You add an IAM user to aws-auth ConfigMap.
+•	You update the kubeconfig using aws eks update-kubeconfig.
+•	Now you can kubectl get pods, etc., because you're authenticated via AWS IAM and authorized via aws-auth.
+________________________________________
+🔐 BONUS: RBAC Roles
+Even after aws-auth, fine-grained access (e.g., read-only to namespace) is done via:
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: dev-read-only
+  namespace: dev
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: bind-dev-user
+  namespace: dev
+subjects:
+- kind: User
+  name: <USERNAME>
+  apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: Role
+  name: dev-read-only
+  apiGroup: rbac.authorization.k8s.io
+________________________________________
+| Method                    | Used For            | Suitable For          | Description                                                    |
+| ------------------------- | ------------------- | --------------------- | -------------------------------------------------------------- |
+| **Static Password/File**  | Human users         | Dev only              | Basic auth using static files (not recommended for production) |
+| **Client Certificates**   | Human/Service users | Dev and Prod          | X.509 certs signed by cluster CA                               |
+| **Bearer Tokens**         | Service accounts    | Dev and Prod          | JWT token used by service accounts and OIDC                    |
+| **OpenID Connect (OIDC)** | Human users         | Production            | Federated identity (e.g., AWS Cognito, Google, Azure AD)       |
+| **Webhook Token Auth**    | External auth       | Production            | Delegates auth to custom service                               |
+| **AWS IAM Authenticator** | Human users         | Production (EKS)      | Maps IAM users/roles to Kubernetes users                       |
+| **Cloud IAM Integration** | Human users         | Production (GKE, AKS) | Cloud-native IAM integration                                   |
+________________________________________
+👮 Authorization in Kubernetes
+Authorization defines what an authenticated user/service is allowed to do.
+| Authorization Mode                   | Description                                                    |
+| ------------------------------------ | -------------------------------------------------------------- |
+| **RBAC** (Role-Based Access Control) | Most widely used; defines roles and binds them to users/groups |
+| **ABAC** (Attribute-Based)           | Deprecated in favor of RBAC                                    |
+| **Webhook Authorization**            | Delegates decisions to external service                        |
+| **Node Authorization**               | Used by kubelets to access limited resources                   |
+| **AlwaysAllow / AlwaysDeny**         | Dev/test only; insecure                                        |
+________________________________________
+🔄 Combined Auth Flow Example
+1.	🔐 Authentication:
+o	A developer logs in using OIDC via kubectl and gets a bearer token.
+o	A service account inside a pod uses a JWT token (automatically mounted by Kubernetes).
+2.	👮 Authorization:
+o	Kubernetes checks if the user is allowed (via RBAC RoleBinding) to access a resource.
+o	For service accounts, a RoleBinding or ClusterRoleBinding grants specific access.
+________________________________________
+🏗️ Typical Authentication & Authorization in Dev vs Prod
+| Environment | Authentication Method       | Authorization Method | Notes                             |
+| ----------- | --------------------------- | -------------------- | --------------------------------- |
+| **Dev**     | Static token / client certs | RBAC / AlwaysAllow   | Simplified, often permissive      |
+| **Prod**    | OIDC / IAM Auth / Certs     | RBAC / Webhook       | Strict and audited access control |
+________________________________________
+🎯 Use Cases
+1. Dev Environment - Static User
+# Create basic static user via kubeconfig
+apiVersion: v1
+kind: Config
+users:
+- name: dev-user
+  user:
+    client-certificate: /path/dev.crt
+    client-key: /path/dev.key
+
+2. RBAC for a Developer
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: dev
+  name: developer-role
+rules:
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list", "watch"]
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: dev-user-binding
+  namespace: dev
+subjects:
+- kind: User
+  name: dev-user
+  apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: Role
+  name: developer-role
+  apiGroup: rbac.authorization.k8s.io
+3. OIDC Setup Example (Production)
+You configure OIDC in API server flags:
+bash
+CopyEdit
+--oidc-issuer-url=https://accounts.google.com \
+--oidc-client-id=YOUR_CLIENT_ID \
+--oidc-username-claim=email
+Then use RBAC to authorize OIDC users.
+________________________________________
+⚙️ In EKS (Production)
+•	Authentication: Handled via aws-iam-authenticator
+•	IAM roles mapped to Kubernetes users in aws-auth ConfigMap.
+•	Example:
+mapRoles: |
+  - rolearn: arn:aws:iam::111122223333:role/EKSAdmin
+    username: eks-admin
+    groups:
+      - system:masters
+•	Authorization: Controlled using Kubernetes RBAC.
+________________________________________
+🔐 Pod/Service Account Authentication
+Every pod gets a service account token mounted by default:
+•	Token is a JWT, used to access API server.
+•	Example RBAC for a service account:
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: app-sa
+  namespace: app
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: app-role
+  namespace: app
+rules:
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: app-sa-binding
+  namespace: app
+subjects:
+- kind: ServiceAccount
+  name: app-sa
+roleRef:
+  kind: Role
+  name: app-role
+  apiGroup: rbac.authorization.k8s.io
+________________________________________
+| Layer  | Authentication                   | Authorization       |
+| ------ | -------------------------------- | ------------------- |
+| Human  | OIDC, IAM, Certs                 | RBAC                |
+| Pod    | Service Account JWT              | RBAC                |
+| System | Webhook, IAM, Cloud Integrations | RBAC, Node, Webhook |
+________________________________________
+🔐 Kubernetes Authentication
+📌 What is Authentication?
+Authentication is the process of verifying the identity of a user, service, or machine trying to interact with the Kubernetes API.
+________________________________________
+| Method                          | Description                                                | Suitable For         | Dev | Prod |
+| ------------------------------- | ---------------------------------------------------------- | -------------------- | --- | ---- |
+| **Static Token File**           | Simple token-based file used for quick auth                | Demos, tests         | ✅   | ❌    |
+| **Static Basic Auth File**      | Username/password stored in a flat file                    | Rarely used          | ✅   | ❌    |
+| **X.509 Client Certificates**   | Client presents TLS certificate                            | Secure & strong auth | ✅   | ✅    |
+| **Service Accounts**            | Automatically assigned tokens for Pods                     | Internal Pod auth    | ✅   | ✅    |
+| **OIDC (OpenID Connect)**       | Integrates with identity providers (Google, Okta, AWS IAM) | Enterprise SSO       | ❌   | ✅    |
+| **Webhook Token Authenticator** | Delegates auth to external service via webhook             | Custom integrations  | ❌   | ✅    |
+| **AWS IAM Authenticator**       | Auth using AWS IAM roles/users                             | EKS Production auth  | ✅   | ✅    |
+________________________________________
+✅ Development Environment – Authentication Methods
+•	Use kubeconfig with:
+o	X.509 Client Certs (generated using kubeadm or kubectl)
+o	Basic auth or static token (quick test only)
+•	kubectl proxy for local access
+•	ServiceAccounts in dev namespace for in-cluster workloads
+________________________________________
+✅ Production Environment – Authentication Methods
+•	OIDC (with AWS IAM, Okta, Auth0, Google Workspace)
+•	ServiceAccounts with IAM Roles for Service Account (IRSA)
+•	X.509 certificates signed by internal PKI
+•	Enable WebhookTokenAuthenticator for central auth services
+________________________________________
+🔒 Kubernetes Authorization
+📌 What is Authorization?
+Authorization is the process of deciding whether an authenticated identity can perform a given action (like get, create, or delete) 
+on a resource.
+________________________________________
+✅ Authorization Types in Kubernetes
+| Type                       | Description                                        | Use Case                  | Dev | Prod |
+| -------------------------- | -------------------------------------------------- | ------------------------- | --- | ---- |
+| **RBAC**                   | Role-Based Access Control using roles and bindings | Fine-grained access       | ✅   | ✅    |
+| **ABAC**                   | Attribute-Based Access Control via policies        | Legacy, deprecated        | ✅   | ❌    |
+| **Webhook Authorization**  | External service decides access                    | Enterprise policy engines | ❌   | ✅    |
+| **Node Authorization**     | Special node identity auth                         | Used by kubelets          | ✅   | ✅    |
+| **AlwaysAllow/AlwaysDeny** | Static allow/deny (testing only)                   | Never for prod            | ✅   | ❌    |
+________________________________________
+✅ Dev Environment – Authorization
+•	Use RBAC
+•	Create minimal roles for devs using Role and RoleBinding
+•	Default admin, edit, and view cluster roles
+•	Namespace isolation via separate roles per namespace
+________________________________________
+✅ Prod Environment – Authorization
+•	Strict RBAC with:
+o	Namespaced roles for apps
+o	ClusterRoles for infra
+•	GitOps or Terraform-managed RoleBindings
+•	Use OPA/Gatekeeper or Kyverno for policy-as-code (Webhook auth)
+•	Least-privilege principle applied
+________________________________________
+📁 YAML Examples for Production RBAC
+1. Role (Namespace Scoped)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: dev
+  name: pod-reader
+rules:
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "watch", "list"]
+
+2. RoleBinding (Binding Role to User)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: read-pods-binding
+  namespace: dev
+subjects:
+- kind: User
+  name: dev-user@example.com
+  apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: Role
+  name: pod-reader
+  apiGroup: rbac.authorization.k8s.io
+
+3. ClusterRole (Across All Namespaces)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: node-reader
+rules:
+- apiGroups: [""]
+  resources: ["nodes"]
+  verbs: ["get", "watch", "list"]
+
+4. ClusterRoleBinding (for AWS IAM/OIDC User)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: admin-oidc-binding
+subjects:
+- kind: User
+  name: "arn:aws:iam::123456789012:user/k8s-admin"
+  apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: ClusterRole
+  name: cluster-admin
+  apiGroup: rbac.authorization.k8s.io
+________________________________________
+📁 kubeconfig and AWS IAM Integration
+•	~/.kube/config is the default config file for kubectl
+
+•	For AWS EKS:
+aws eks --region us-east-1 update-kubeconfig --name prod-cluster
+This will configure your kubeconfig with:
+o	Cluster endpoint
+o	IAM-auth token fetcher (aws-iam-authenticator)
+o	Current user identity
+________________________________________
+🔐 IRSA (IAM Roles for Service Accounts)
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: s3-reader
+  namespace: default
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::123456789012:role/S3ReadOnlyRole
+This authorizes pods to assume the IAM role securely using EKS’s OIDC provider.
+________________________________________
+| Category   | Dev                                     | Prod                                          |
+| ---------- | --------------------------------------- | --------------------------------------------- |
+| Auth       | kubeconfig, static tokens, client certs | IAM, OIDC, IRSA, Webhook                      |
+| AuthZ      | Simple RBAC, default roles              | Strict RBAC, ClusterRoles, Gatekeeper, Policy |
+| kubeconfig | local-only                              | centralized or role-assumed                   |
+| Identity   | local users/devs                        | IAM/OIDC/SSO                                  |
+
