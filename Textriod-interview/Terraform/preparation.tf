@@ -350,6 +350,13 @@ the current lock, such as who holds it and what operation is running, while the 
 It is created ONLY when Terraform is actually locking the state, and that depends on whether the backend supports locking (like DynamoDB).
 ------------------------------------------------------------------------------------------------------------------------------------------
 TERRAFORM TAINT/REPLACE - Taint = force rebuild
+Taint and replace in Terraform are used to force the recreation of resources.
+Taint marks a resource as damaged so Terraform destroys and recreates it on the next apply.
+The replace option is the newer and recommended way to achieve the same behavior.
+Both are used when a resource is unhealthy or misconfigured but Terraform doesn’t detect a change.
+They do not change the configuration, only the resource lifecycle.
+Replace is preferred because it is safer, more explicit, and integrated into the plan.”
+---
 terraform taint marks a specific resource as “damaged” so Terraform will destroy and recreate it on the next apply.
 ----
 Terraform taint marks a resource in the state as needing replacement, forcing Terraform to destroy and recreate it on the next apply. 
@@ -399,11 +406,122 @@ terraform apply -replace="aws_instance.web"
 
 -----------------------------------------------
 TERRAFORM REFRESH
+Terraform refresh is used to synchronize the Terraform state file with the actual infrastructure without making any changes.
+It checks real resources and updates the state to reflect their current values.
+terraform refresh was used earlier as a separate command, but now the recommended approach is terraform apply -refresh-only.
+Refresh-only updates the state file but does not create, modify, or destroy any resources.
+It is mainly used when infrastructure was changed outside Terraform.
+This ensures Terraform state remains accurate before planning or applying changes.”
+Terraform refresh updates only the state to reflect real infrastructure and never modifies configuration code. Any differences between 
+refreshed state and configuration are shown during plan and must be resolved by changing the code or applying Terraform.
+---
+terraform apply -refresh-only
+
+-----------------------------------------------
 PROVISONERS
+Terraform provisioners execute scripts after resource creation but are discouraged because they are not idempotent, break Terraform’s 
+declarative model, depend on connectivity, and are hard to manage in CI/CD. They should be used only as a last resort.
+---
+Provisioners are used to execute scripts or commands on a resource after it is created (or before it is destroyed).
+---
+resource "aws_instance" "web" {
+  ami           = "ami-0abc123"
+  instance_type = "t3.micro"
+
+  provisioner "remote-exec" {
+    inline = [
+      "sudo yum install -y nginx",
+      "sudo systemctl start nginx"
+    ]
+  }
+
+  connection {
+    type        = "ssh"
+    user        = "ec2-user"
+    private_key = file("key.pem")
+    host        = self.public_ip
+  }
+}
+---
+provisioner "file" {
+  source      = "app.conf"
+  destination = "/etc/app.conf"
+}
+---
+resource "aws_s3_bucket" "bucket" {
+  bucket = "example-bucket"
+
+  provisioner "local-exec" {
+    command = "echo Bucket created"
+  }
+}
+---
 NULL RESOURCES
+null_resource in Terraform is a special resource that does not create any real infrastructure.
+It is mainly used to execute scripts or actions using provisioners when certain conditions change.
+null_resource relies on triggers to decide when it should be recreated and run again.
+In real projects, it has been used for tasks like running database migrations, registering services with external systems, or restarting 
+applications after configuration changes.
+However, it is not preferred because it breaks Terraform’s declarative model and causes unpredictable behavior.
+Modern best practices recommend moving these actions to CI/CD pipelines, cloud-init, or native Terraform resources instead.
+---------------------------------
 LIFECYCLE POLICIES
+Lifecycle policies in Terraform control how resources are created, updated, and destroyed.
+They allow us to prevent accidental deletion, manage replacement order, and ignore specific attribute changes.
+Common lifecycle rules include prevent_destroy, create_before_destroy, and ignore_changes.
+They are mainly used to protect critical resources, avoid downtime during updates, and handle externally managed changes.
+Lifecycle policies help make infrastructure safer and more predictable in production environments.”
+---
+prevent_destroy
+Use Case (Real-Time)
+Production databases
+S3 buckets with critical data
+IAM roles
+resource "aws_db_instance" "prod_db" {
+  identifier = "prod-db"
+
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+---
+create_before_destroy
+Use Case (Real-Time)
+Load balancers
+Auto Scaling Launch Templates
+Application servers
+resource "aws_instance" "app" {
+  ami           = "ami-xxxx"
+  instance_type = "t3.micro"
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+---
+ignore_changes
+Use Case (Real-Time)
+Tags modified manually
+Auto-scaled attributes
+AMI updated outside Terraform
+resource "aws_instance" "web" {
+  ami           = "ami-xxxx"
+  instance_type = "t3.micro"
+
+  lifecycle {
+    ignore_changes = [
+      tags,
+      user_data
+    ]
+  }
+}
+--------------------------------------------------
 DATA SOURCES
+
 drift detection strategies
 terraform best practice
 how to manage secrets
+meta arguemnts
+count and for each
+variables and other functions
 
