@@ -784,3 +784,146 @@ resource "aws_eks_node_group" "node_group" {
   instance_types = ["t3.medium"]
 }
 ==========================================================
+pipeline {
+  agent any
+
+  environment {
+    REGISTRY = "private.registry.com"
+    IMAGE_NAME = "order-service"
+    IMAGE_TAG = "${BUILD_NUMBER}"
+    SONARQUBE_ENV = "sonarqube-server"
+    KUBECONFIG = credentials('kubeconfig')
+    HELM_CHART = "helm/order-service"
+  }
+
+  stages {
+
+    stage('Checkout') {
+      steps {
+        checkout scm
+      }
+    }
+
+    stage('Build & Test') {
+      steps {
+        sh 'mvn clean test'
+      }
+    }
+
+    stage('SonarQube Analysis') {
+      steps {
+        withSonarQubeEnv("${SONARQUBE_ENV}") {
+          sh 'mvn sonar:sonar -Dsonar.projectKey=order-service'
+        }
+      }
+    }
+
+    stage('Quality Gate') {
+      steps {
+        timeout(time: 2, unit: 'MINUTES') {
+          waitForQualityGate abortPipeline: true
+        }
+      }
+    }
+
+    stage('Docker Build') {
+      steps {
+        sh '''
+          docker build -t $REGISTRY/$IMAGE_NAME:$IMAGE_TAG .
+        '''
+      }
+    }
+
+    stage('Docker Login') {
+      steps {
+        withCredentials([usernamePassword(
+          credentialsId: 'docker-registry-creds',
+          usernameVariable: 'DOCKER_USER',
+          passwordVariable: 'DOCKER_PASS'
+        )]) {
+          sh '''
+            echo $DOCKER_PASS | docker login $REGISTRY \
+            -u $DOCKER_USER --password-stdin
+          '''
+        }
+      }
+    }
+
+    stage('Trivy Scan') {
+      steps {
+        sh '''
+          trivy image --severity HIGH,CRITICAL \
+          --exit-code 1 \
+          $REGISTRY/$IMAGE_NAME:$IMAGE_TAG
+        '''
+      }
+    }
+
+    stage('Docker Push') {
+      steps {
+        sh '''
+          docker push $REGISTRY/$IMAGE_NAME:$IMAGE_TAG
+        '''
+      }
+    }
+
+    stage('Deploy DEV') {
+      when { branch 'develop' }
+      steps {
+        sh '''
+          helm upgrade --install order-service $HELM_CHART \
+          --namespace dev --create-namespace \
+          -f $HELM_CHART/values-dev.yaml \
+          --set image.tag=$IMAGE_TAG
+        '''
+      }
+    }
+
+    stage('Deploy QA') {
+      when { branch 'qa' }
+      steps {
+        input message: 'Approve deployment to QA?'
+        sh '''
+          helm upgrade --install order-service $HELM_CHART \
+          --namespace qa --create-namespace \
+          -f $HELM_CHART/values-qa.yaml \
+          --set image.tag=$IMAGE_TAG
+        '''
+      }
+    }
+
+    stage('Deploy STAGING') {
+      when { branch 'staging' }
+      steps {
+        input message: 'Approve deployment to STAGING?'
+        sh '''
+          helm upgrade --install order-service $HELM_CHART \
+          --namespace staging --create-namespace \
+          -f $HELM_CHART/values-staging.yaml \
+          --set image.tag=$IMAGE_TAG
+        '''
+      }
+    }
+
+    stage('Deploy PROD') {
+      when { branch 'main' }
+      steps {
+        input message: 'Approve deployment to PROD?'
+        sh '''
+          helm upgrade --install order-service $HELM_CHART \
+          --namespace prod --create-namespace \
+          -f $HELM_CHART/values-prod.yaml \
+          --set image.tag=$IMAGE_TAG
+        '''
+      }
+    }
+  }
+
+  post {
+    failure {
+      echo "Rolling back PROD..."
+      sh 'helm rollback order-service 0 -n prod || true'
+    }
+  }
+}
+
