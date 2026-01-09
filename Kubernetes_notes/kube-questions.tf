@@ -69,6 +69,9 @@ ReplicaSet > Maintains N identical pods; auto-replaces failed pods
 StatefulSet > Unique pod identity; persistent storage; ordered start/stop
 Service > Stable IP/DNS; load balances across pods; internal/external access
 Ingress  > Routes HTTP(S) traffic; path- or host-based; TLS support; needs controller
+---
+TLS stands for Transport Layer Security.
+TLS is a security protocol that encrypts data sent between two systems so that it cannot be read or modified by attackers.
 -------------------------------------------------------------------------------------------------------------
 9) What is a label/selector?
   -A label is a key-value pair that you attach to Kubernetes objects (like Pods, Nodes, Services, etc.) to organize and identify them.
