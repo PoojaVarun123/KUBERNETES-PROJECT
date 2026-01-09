@@ -1,6 +1,25 @@
 =============================================================================================================
                                           KUBERNETES QUESTIONS
 =============================================================================================================
+Docker is mainly a container runtime used to build and run containers, while Kubernetes is a container orchestration platform.
+Kubernetes is preferred when running containers at scale because it provides automated deployment, scaling, self-healing, and load balancing.
+It manages multiple containers across multiple nodes, something Docker alone cannot do efficiently.
+Kubernetes handles rolling updates, service discovery, and resource management out of the box.
+It also provides high availability and fault tolerance.
+In production environments, Kubernetes is chosen over Docker to reliably run, manage, and scale containerized applications.
+-------------------------------------------------------------------------------------------------------------
+Docker Swarm and Kubernetes are container orchestration tools, but Kubernetes is more powerful and widely adopted.
+Docker Swarm is simple to set up and tightly integrated with Docker, making it good for small or simple workloads.
+Kubernetes offers advanced features like auto-scaling, self-healing, rolling updates, and a rich ecosystem.
+Kubernetes supports complex production workloads, multi-cloud deployments, and large clusters.
+Because of its flexibility, scalability, and community support, Kubernetes is preferred for enterprise and production environments.
+-------------------------------------------------------------------------------------------------------------
+Service exposes Pods, Ingress routes external traffic to Services.
+“A Kubernetes Service provides a stable network endpoint to access Pods, while Ingress manages external HTTP/HTTPS access to Services.
+Service handles internal load balancing and service discovery, whereas Ingress handles routing, SSL termination, and host- or path-based traffic rules.
+Ingress always works on top of Services and does not expose Pods directly.
+In production, Services are used for internal communication, and Ingress is used as the entry point for external traffic.”
+-------------------------------------------------------------------------------------------------------------
 1) what is kubernetes?
 -------------------------------------------------------------------------------------------------------------
 2) Kubernetes architecture?
@@ -79,6 +98,12 @@ TLS is a security protocol that encrypts data sent between two systems so that i
   -For example, a Service uses a selector to send traffic only to the pods with matching labels.
 -------------------------------------------------------------------------------------------------------------
 10) Why is service important?
+In Kubernetes, a Service is important because Pods are ephemeral and their IPs keep changing.
+A Service provides a stable network endpoint to access a set of Pods.
+It enables service discovery and load balancing within the cluster.
+Services allow applications to communicate reliably even when Pods are recreated or scaled.
+They decouple application access from Pod lifecycle.
+In production, Services are essential for internal communication, external access, and high availability.”
 -------------------------------------------------------------------------------------------------------------
 11) Sidecar Container
    -A sidecar container is a container that runs alongside the main application container in the same Pod and provides supporting features.
