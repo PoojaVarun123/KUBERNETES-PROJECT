@@ -489,3 +489,298 @@ spec:
       resources:
         requests:
           storage: 5Gi
+============================================================
+EC2 CREATION
+============================================================
+provider "aws" {
+  region = "us-east-1"
+}
+resource "aws_instance" "my_ec2" {
+  ami           = "ami-0c02fb55956c7d316"   # Amazon Linux 2 (example)
+  instance_type = "t2.micro"
+  key_name = "my-keypair"
+
+  tags = {
+    Name = "my-ec2-instance"
+    Env  = "dev"
+  }
+}
+==============================================================
+VPC
+==============================================================
+provider "aws" {
+  region = "us-east-1"
+}
+---
+resource "aws_vpc" "main" {
+  cidr_block           = "10.0.0.0/16"
+
+  tags = {
+    Name = "main-vpc"
+  }
+}
+---
+resource "aws_internet_gateway" "igw" {
+  vpc_id = aws_vpc.main.id
+
+  tags = {
+    Name = "main-igw"
+  }
+}
+---
+resource "aws_subnet" "public" {
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = "10.0.1.0/24"
+  map_public_ip_on_launch = true
+  availability_zone       = "us-east-1a"
+
+  tags = {
+    Name = "public-subnet"
+  }
+}
+---
+resource "aws_route_table" "public_rt" {
+  vpc_id = aws_vpc.main.id
+
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.igw.id
+  }
+
+  tags = {
+    Name = "public-rt"
+  }
+}
+---
+resource "aws_route_table" "public_rt" {
+  vpc_id = aws_vpc.main.id
+
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.igw.id
+  }
+
+  tags = {
+    Name = "public-rt"
+  }
+}
+---
+resource "aws_security_group" "ec2_sg" {
+  name   = "ec2-sg"
+  vpc_id = aws_vpc.main.id
+
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "ec2-sg"
+  }
+}
+---
+resource "aws_instance" "web" {
+  ami                    = "ami-0c02fb55956c7d316"  # Amazon Linux 2
+  instance_type          = "t2.micro"
+  subnet_id              = aws_subnet.public.id
+  vpc_security_group_ids = [aws_security_group.ec2_sg.id]
+  key_name               = "my-keypair"
+
+  user_data = <<-EOF
+    #!/bin/bash
+    yum install -y httpd
+    systemctl start httpd
+    systemctl enable httpd
+  EOF
+
+  tags = {
+    Name = "web-ec2"
+  }
+}
+=======================================================================
+                S3 Bucket
+=======================================================================
+resource "aws_s3_bucket" "prod" {
+  bucket = "prod-secure-bucket-123"
+
+  versioning {
+    enabled = true
+  }
+
+  lifecycle_rule {
+    enabled = true
+    expiration { days = 90 }
+  }
+
+  tags = {
+    Env = "prod"
+  }
+}
+=======================================================================
+                  s3 backend
+=======================================================================
+resource "aws_dynamodb_table" "tf_lock" {
+  name         = "terraform-locks"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "LockID"
+
+  attribute {
+    name = "LockID"
+    type = "S"
+  }
+}
+---
+terraform {
+  backend "s3" {
+    bucket         = "my-terraform-state-bucket-123"
+    key            = "prod/terraform.tfstate"
+    region         = "us-east-1"
+    dynamodb_table = "terraform-locks"
+    encrypt        = true
+  }
+}
+==============================================================
+1. COUNT
+resource "aws_instance" "web" {
+  count         = 3
+  ami           = "ami_id"
+  instance_type = "t2.micro"
+
+  tags = {
+    Name = "web-server-${count.index}"
+  }
+}
+Terraform creates:
+web-server-0
+web-server-1
+web-server-2
+---
+2. How to make Terraform start numbering from 1
+ resource "aws_instance" "web" {
+  count         = 3
+  ami           = "ami_id"
+  instance_type = "t2.micro"
+
+  tags = {
+    Name = "web-server-${count.index + 1}"
+  }
+}
+web-server-1
+web-server-2
+web-server-3
+==================================================================
+FOR EACH
+==================================================================
+resource "aws_instance" "multi" {
+  for_each      = {
+    web  = "t3.micro"
+    app  = "t3.small"
+    db   = "t3.medium"
+  }
+
+  ami           = "ami-0c1a7f89451184c8b"
+  instance_type = each.value
+
+  tags = {
+    Name = each.key
+  }
+}
+| Instance Name | Instance Type |
+| ------------- | ------------- |
+| web           | t3.micro      |
+| app           | t3.small      |
+| db            | t3.medium     |
+ 
+variable "servers" {
+  type = map(string)
+  default = {
+    app   = "t3.medium"
+    db    = "t3.large"
+    cache = "t3.small"
+  }
+}
+resource "aws_instance" "multi" {
+  for_each      = var.servers
+  ami           = var.ami_id
+  instance_type = each.value
+
+  tags = {
+    Name = each.key
+  }
+}
+| Name  | Type      |
+| ----- | --------- |
+| app   | t3.medium |
+| db    | t3.large  |
+| cache | t3.small  |
+
+TO SET
+resource "aws_instance" "multi_instances" {
+  for_each      = toset(["web", "app", "db"])
+  ami           = "ami-0c1a7f89451184c8b"
+  instance_type = "t3.micro"  # Same type for all
+
+  tags = {
+    Name = each.value
+  }
+}
+| Instance Name | Instance Type |
+| ------------- | ------------- |
+| web           | t3.micro      |
+| app           | t3.micro      |
+| db            | t3.micro      |
+========================================================
+CREATION OF EKS CLUSTER
+=======================================================
+resource "aws_eks_cluster" "eks" {
+  name     = "my-eks-cluster"
+  role_arn = aws_iam_role.eks_cluster_role.arn
+
+  vpc_config {
+    subnet_ids = [
+      aws_subnet.eks_subnet_1.id,
+      aws_subnet.eks_subnet_2.id
+    ]
+  }
+
+  depends_on = [
+    aws_iam_role_policy_attachment.eks_policy
+  ]
+}
+========================================================
+WORKER NODES
+=======================================================
+resource "aws_eks_node_group" "node_group" {
+  cluster_name    = aws_eks_cluster.eks.name
+  node_group_name = "eks-nodes"
+  node_role_arn   = aws_iam_role.eks_node_role.arn
+  subnet_ids      = [
+    aws_subnet.eks_subnet_1.id,
+    aws_subnet.eks_subnet_2.id
+  ]
+
+  scaling_config {
+    desired_size = 2
+    max_size     = 3
+    min_size     = 1
+  }
+
+  instance_types = ["t3.medium"]
+}
+==========================================================
