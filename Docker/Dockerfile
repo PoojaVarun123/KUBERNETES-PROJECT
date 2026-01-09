@@ -36,6 +36,32 @@ COPY --from=builder /app ./
 
 EXPOSE 3000
 CMD ["node", "index.js"]
+---
+# Stage 1: Build dependencies and app
+FROM node:18 AS builder
+WORKDIR /app
+
+# Copy dependency files first (for caching)
+COPY package.json package-lock.json ./
+RUN npm install
+
+# Copy application source
+COPY . .
+
+# Build step (optional – frontend / TypeScript apps)
+# RUN npm run build
+
+# Stage 2: Production runtime
+FROM node:18-slim
+WORKDIR /app
+
+# Copy only required artifacts
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/server.js ./server.js
+# COPY --from=builder /app/dist ./dist   # if build step exists
+
+EXPOSE 3000
+CMD ["node", "server.js"]
 
 
 ======================================================================================================================================
